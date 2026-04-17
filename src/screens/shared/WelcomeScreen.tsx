@@ -11,7 +11,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import {Text, Title, Button, ActivityIndicator, Surface} from 'react-native-paper';
-import {apiService} from '../services/apiService';
+import {apiService} from '../../services/apiService';
 
 const {width, height} = Dimensions.get('window');
 
@@ -64,8 +64,8 @@ export const WelcomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const displayItems = items.length > 0 ? items : [
     {
       id: 0,
-      title: "Bienvenue sur Garagiste Pro",
-      description: "La solution n°1 pour les mécaniciens modernes d'Afrique. Diagnostiquez, gérez et développez votre activité.",
+      title: "Bienvenue sur OBD-CI Connect",
+      description: "Votre compagnon de route intelligent en Côte d'Ivoire. Suivez votre consommation, anticipez les pannes et gérez votre véhicule en toute simplicité.",
       imageUrl: null,
       videoUrl: null
     }
@@ -74,9 +74,9 @@ export const WelcomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      
+
       <View style={styles.header}>
-        <Title style={styles.brandTitle}>Garagiste<Text style={styles.brandPro}>Pro</Text></Title>
+        <Title style={styles.brandTitle}>OBD-CI<Text style={styles.brandPro}> Connect</Text></Title>
       </View>
 
       <ScrollView
@@ -102,15 +102,15 @@ export const WelcomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
                   </View>
                 )}
               </View>
-              
+
               <View style={styles.textContainer}>
                 <Title style={styles.title}>{item.title}</Title>
                 <Text style={styles.description}>{item.description}</Text>
-                
+
                 {item.videoUrl && (
-                  <Button 
-                    icon="play-circle" 
-                    mode="contained-tonal" 
+                  <Button
+                    icon="play-circle"
+                    mode="contained-tonal"
                     onPress={() => Linking.openURL(item.videoUrl!)}
                     style={styles.videoButton}
                     labelStyle={styles.videoButtonLabel}>
@@ -145,8 +145,8 @@ export const WelcomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
             labelStyle={styles.buttonLabel}>
             Se connecter / S'abonner
           </Button>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             onPress={() => navigation.navigate('Register')}
             activeOpacity={0.7}
             style={styles.registerLinkContainer}>

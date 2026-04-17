@@ -9,17 +9,16 @@ import {
   Modal,
 } from 'react-native';
 import {Card, Button, Avatar, Badge, List, Divider, IconButton} from 'react-native-paper';
-import {useStore} from '../store/useStore';
+import {useStore} from '../../store/useStore';
+import {apiService} from '../../services/apiService';
 
-import {apiService} from '../services/apiService';
-
-export const HomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
+export const GarageHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const {
-    mechanic,
+    user,
     unreadScansCount,
     vehicleInfo,
     setCurrentScreen,
-    setMechanic,
+    setUser,
     setConnectedDevice,
     setVehicleInfo,
   } = useStore();
@@ -30,18 +29,18 @@ export const HomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
     // Charger le profil réel depuis l'API si on ne l'a pas encore dans le store
     const loadProfile = async () => {
       // On force le rechargement si des infos critiques manquent
-      if (!mechanic || !mechanic.first_name || !mechanic.user_type) {
-        console.log('HomeScreen: Loading profile...');
+      if (!user || !user.first_name || !user.user_type) {
+        console.log('GarageHomeScreen: Loading profile...');
         const data = await apiService.getCurrentMechanic();
         if (data) {
-          console.log('HomeScreen: Profile loaded', data.user_type, data.shop_name);
-          setMechanic(data);
+          console.log('GarageHomeScreen: Profile loaded', data.user_type, data.shop_name);
+          setUser(data);
         }
       }
     };
 
     loadProfile();
-  }, [setCurrentScreen, mechanic, setMechanic]);
+  }, [setCurrentScreen, user, setUser]);
 
   const handleDisconnect = async () => {
     // Si on a un device connecté, on pourrait tenter de le déconnecter proprement ici
@@ -104,51 +103,6 @@ export const HomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
   );
 
   const renderQuickActions = () => {
-    const isFleetOwner = mechanic?.user_type === 'FLEET_OWNER';
-
-    if (isFleetOwner) {
-      return (
-        <View style={styles.actionsGrid}>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => navigation.navigate('FleetDashboard')}>
-            <Text style={styles.actionIcon}>📊</Text>
-            <Text style={styles.actionText}>Ma Flotte</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => navigation.navigate('History')}>
-            <Text style={styles.actionIcon}>📋</Text>
-            <Text style={styles.actionText}>Historique</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => navigation.navigate('UpcomingModules')}>
-            <Text style={styles.actionIcon}>🚀</Text>
-            <Text style={styles.actionText}>Modules IA</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => navigation.navigate('Profile')}>
-            <Text style={styles.actionIcon}>👤</Text>
-            <Text style={styles.actionText}>Mon Compte</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionCard, styles.expertiseActionCard]}
-            onPress={() => navigation.navigate('Expertise')}>
-            <Text style={styles.actionIcon}>🛡️</Text>
-            <Text style={styles.actionText}>Expertise Occasion</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionCard, styles.subscriptionActionCard]}
-            onPress={() => navigation.navigate('Subscriptions')}>
-            <Text style={styles.actionIcon}>⭐</Text>
-            <Text style={styles.actionText}>Nos Offres</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
     return (
       <View style={styles.actionsGrid}>
         <TouchableOpacity
@@ -224,10 +178,10 @@ export const HomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.welcome}>
-          Bonjour, {mechanic?.first_name || mechanic?.username || (mechanic?.user_type === 'FLEET_OWNER' ? 'Propriétaire' : 'Mécanicien')}
+          Bonjour, {user?.first_name || user?.username || 'Mécanicien'}
         </Text>
         <Text style={styles.subtitle}>
-          {mechanic?.shop_name || (mechanic?.user_type === 'FLEET_OWNER' ? 'Ma Flotte' : 'Garagiste Pro')}
+          {user?.shop_name || 'Garagiste Pro'}
         </Text>
       </View>
 

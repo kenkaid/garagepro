@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import {Card, Title, Paragraph, Badge, Chip, ActivityIndicator, Divider} from 'react-native-paper';
 import RenderHtml from 'react-native-render-html';
-import {apiService} from '../services/apiService';
+import {apiService} from '../../services/apiService';
 
 export const UpcomingModulesScreen: React.FC = () => {
   const {width} = useWindowDimensions();

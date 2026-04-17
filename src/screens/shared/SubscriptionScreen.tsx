@@ -14,14 +14,14 @@ import {
   Avatar,
   TextInput,
 } from 'react-native-paper';
-import {apiService} from '../services/apiService';
-import {useStore} from '../store/useStore';
+import {apiService} from '../../services/apiService';
+import {useStore} from '../../store/useStore';
 
 export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) => {
-  const {mechanic, setMechanic} = useStore();
+  const {user, setUser} = useStore();
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // États pour le paiement (réutilisé de ProfileScreen)
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [showQuotation, setShowQuotation] = useState(false);
@@ -65,8 +65,8 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
     setPaymentLoading(true);
     const transactionId = `${method}_` + Date.now();
     const result = await apiService.changeSubscriptionPlan(
-      selectedPlan.id, 
-      transactionId, 
+      selectedPlan.id,
+      transactionId,
       parseInt(durationMonths, 10),
       method
     );
@@ -74,7 +74,7 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
 
     if (result) {
       const updatedMechanic = await apiService.getCurrentMechanic();
-      if (updatedMechanic) setMechanic(updatedMechanic);
+      if (updatedMechanic) setUser(updatedMechanic);
       setShowPaymentMethods(false);
       setShowQuotation(false);
       Alert.alert('Succès', `Votre abonnement via ${method} a été activé !`);
@@ -176,7 +176,7 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
       </View>
 
       {plans.map((plan) => (
-        <Card key={plan.id} style={[styles.card, mechanic?.subscription_tier === plan.tier && styles.activeCard]}>
+        <Card key={plan.id} style={[styles.card, user?.subscription_tier === plan.tier && styles.activeCard]}>
           <View style={[styles.planHeader, {backgroundColor: getTierColor(plan.tier)}]}>
             <View style={styles.planTitleRow}>
               <IconButton icon={getTierIcon(plan.tier)} color="white" size={24} />
@@ -187,17 +187,17 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
 
           <Card.Content style={styles.cardContent}>
             <Text style={styles.description}>{plan.description}</Text>
-            
+
             {renderScanExample(plan.tier)}
 
-            <Button 
-              mode={mechanic?.subscription_tier === plan.tier ? "outlined" : "contained"}
+            <Button
+              mode={user?.subscription_tier === plan.tier ? "outlined" : "contained"}
               onPress={() => handleSelectPlan(plan)}
               style={styles.subscribeBtn}
               color={getTierColor(plan.tier)}
-              disabled={mechanic?.subscription_tier === plan.tier}
+              disabled={user?.subscription_tier === plan.tier}
             >
-              {mechanic?.subscription_tier === plan.tier ? "PLAN ACTUEL" : "SOUSCRIRE MAINTENANT"}
+              {user?.subscription_tier === plan.tier ? "PLAN ACTUEL" : "SOUSCRIRE MAINTENANT"}
             </Button>
           </Card.Content>
         </Card>
@@ -222,7 +222,7 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
               keyboardType="numeric"
               style={styles.input}
             />
-        
+
             {paymentLoading ? (
               <ActivityIndicator />
             ) : quotation ? (
@@ -241,9 +241,9 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setShowQuotation(false)}>Annuler</Button>
-            <Button 
-              mode="contained" 
-              disabled={!quotation || paymentLoading} 
+            <Button
+              mode="contained"
+              disabled={!quotation || paymentLoading}
               onPress={() => {
                 setShowQuotation(false);
                 setShowPaymentMethods(true);

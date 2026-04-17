@@ -1,13 +1,13 @@
 // src/store/useStore.ts
 import {create} from 'zustand';
 import {Device} from 'react-native-ble-plx';
-import {OBDData, DTCCode, ScanSession, Mechanic, VehicleInfo} from '../types';
+import {OBDData, DTCCode, ScanSession, VehicleInfo, User} from '../types';
 
 interface AppState {
   // Auth
-  mechanic: Mechanic | null;
+  user: User | null;
   isAuthenticated: boolean;
-  setMechanic: (mechanic: Mechanic | null) => void;
+  setUser: (user: User | null) => void;
 
   // OBD Connection
   connectedDevice: Device | null;
@@ -39,9 +39,9 @@ interface AppState {
 
 export const useStore = create<AppState>(set => ({
   // Auth
-  mechanic: null,
+  user: null,
   isAuthenticated: false,
-  setMechanic: mechanic => set({mechanic, isAuthenticated: !!mechanic}),
+  setUser: user => set({user, isAuthenticated: !!user}),
 
   // OBD
   connectedDevice: null,

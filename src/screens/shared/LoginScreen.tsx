@@ -1,14 +1,14 @@
 import React, {useState} from 'react';
 import {View, StyleSheet, ScrollView, Alert} from 'react-native';
 import {TextInput, Button, Text, Title, HelperText} from 'react-native-paper';
-import {apiService} from '../services/apiService';
-import {useStore} from '../store/useStore';
+import {apiService} from '../../services/apiService';
+import {useStore} from '../../store/useStore';
 
 export const LoginScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const {mechanic, setMechanic} = useStore();
+  const {user, setUser} = useStore();
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -18,11 +18,11 @@ export const LoginScreen: React.FC<{navigation: any}> = ({navigation}) => {
     }
 
     setLoading(true);
-    const mechanicData = await apiService.login(username, password);
+    const userData = await apiService.login(username, password);
     setLoading(false);
 
-    if (mechanicData) {
-      setMechanic(mechanicData);
+    if (userData) {
+      setUser(userData);
       navigation.replace('Main'); // Rediriger vers l'application principale
     } else {
       Alert.alert('Erreur', 'Identifiants incorrects ou problème réseau');
@@ -33,8 +33,8 @@ export const LoginScreen: React.FC<{navigation: any}> = ({navigation}) => {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <Text style={styles.logo}>👨‍🔧</Text>
-        <Title style={styles.title}>Garagiste Pro</Title>
-        <Text style={styles.subtitle}>Connectez-vous pour gérer votre garage</Text>
+        <Title style={styles.title}>OBD-CI Connect</Title>
+        <Text style={styles.subtitle}>Votre compagnon de route intelligent</Text>
       </View>
 
       <View style={styles.form}>

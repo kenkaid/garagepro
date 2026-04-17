@@ -13,11 +13,11 @@ import {
   List,
   ActivityIndicator,
 } from 'react-native-paper';
-import {useStore} from '../store/useStore';
-import {apiService} from '../services/apiService';
+import {useStore} from '../../store/useStore';
+import {apiService} from '../../services/apiService';
 
 export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
-  const {mechanic, setMechanic, setScanHistory} = useStore();
+  const {user, setUser, setScanHistory} = useStore();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -27,23 +27,23 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const [showPlans, setShowPlans] = useState(false);
 
   // Champs profil
-  const [firstName, setFirstName] = useState(mechanic?.first_name || '');
-  const [lastName, setLastName] = useState(mechanic?.last_name || '');
-  const [shopName, setShopName] = useState(mechanic?.shop_name || '');
-  const [location, setLocation] = useState(mechanic?.location || '');
-  const [phone, setPhone] = useState(mechanic?.phone || '');
+  const [firstName, setFirstName] = useState(user?.first_name || '');
+  const [lastName, setLastName] = useState(user?.last_name || '');
+  const [shopName, setShopName] = useState(user?.shop_name || '');
+  const [location, setLocation] = useState(user?.location || '');
+  const [phone, setPhone] = useState(user?.phone || '');
 
   useEffect(() => {
-    if (mechanic) {
-      setFirstName(mechanic.first_name || '');
-      setLastName(mechanic.last_name || '');
-      setShopName(mechanic.shop_name || '');
-      setLocation(mechanic.location || '');
-      setPhone(mechanic.phone || '');
+    if (user) {
+      setFirstName(user.first_name || '');
+      setLastName(user.last_name || '');
+      setShopName(user.shop_name || '');
+      setLocation(user.location || '');
+      setPhone(user.phone || '');
     }
-  }, [mechanic]);
+  }, [user]);
 
-  const isFleetOwner = mechanic?.user_type === 'FLEET_OWNER';
+  const isFleetOwner = user?.user_type === 'FLEET_OWNER';
   const entityLabel = isFleetOwner ? 'Ma Flotte' : 'Mon Atelier';
   const nameLabel = isFleetOwner ? 'Nom de la Flotte' : 'Nom du garage';
 
@@ -68,7 +68,7 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
   const handleLogout = async () => {
     await apiService.logout();
-    setMechanic(null);
+    setUser(null);
     setScanHistory([]);
     navigation.reset({
       index: 0,
@@ -88,7 +88,7 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
     setLoading(false);
 
     if (result) {
-      setMechanic(result);
+      setUser(result);
       setShowProfileEdit(false);
       Alert.alert('Succès', 'Profil mis à jour avec succès');
     } else {
@@ -160,7 +160,7 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
     if (result) {
       const updatedMechanic = await apiService.getCurrentMechanic();
-      if (updatedMechanic) setMechanic(updatedMechanic);
+      if (updatedMechanic) setUser(updatedMechanic);
       setShowPaymentMethods(false);
       Alert.alert('Succès', `Votre abonnement via ${method} a été activé !`);
     } else {
@@ -172,10 +172,10 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
     setRefreshing(true);
     const result = await apiService.getCurrentMechanic();
     if (result) {
-      setMechanic(result);
+      setUser(result);
     }
     setRefreshing(false);
-  }, [setMechanic]);
+  }, [setUser]);
 
   const getTierColor = (tier?: string) => {
     switch (tier) {
@@ -196,14 +196,14 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
       <View style={styles.header}>
         <Avatar.Text 
           size={80} 
-          label={mechanic?.username?.substring(0, 2).toUpperCase() || 'ME'} 
+          label={user?.username?.substring(0, 2).toUpperCase() || 'ME'} 
           style={styles.avatar}
         />
-        <Title style={styles.name}>{mechanic?.first_name} {mechanic?.last_name || ''}</Title>
-        <View style={[styles.tierBadge, {backgroundColor: getTierColor(mechanic?.subscription_tier)}]}>
-          <Text style={styles.tierText}>{mechanic?.subscription_tier || 'AUCUN'}</Text>
+        <Title style={styles.name}>{user?.first_name} {user?.last_name || ''}</Title>
+        <View style={[styles.tierBadge, {backgroundColor: getTierColor(user?.subscription_tier)}]}>
+          <Text style={styles.tierText}>{user?.subscription_tier || 'AUCUN'}</Text>
         </View>
-        <Text style={styles.shop}>{mechanic?.shop_name || (isFleetOwner ? 'Ma Flotte' : 'Garagiste Pro')}</Text>
+        <Text style={styles.shop}>{user?.shop_name || (isFleetOwner ? 'Ma Flotte' : 'Garagiste Pro')}</Text>
       </View>
 
       <Card style={styles.card}>
@@ -211,31 +211,31 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
         <Card.Content>
           <View style={styles.infoRow}>
             <Text style={styles.label}>Utilisateur</Text>
-            <Text style={styles.value}>{mechanic?.username}</Text>
+            <Text style={styles.value}>{user?.username}</Text>
           </View>
           <Divider style={styles.divider} />
           
           <View style={styles.infoRow}>
             <Text style={styles.label}>Téléphone</Text>
-            <Text style={styles.value}>{mechanic?.phone || 'Non renseigné'}</Text>
+            <Text style={styles.value}>{user?.phone || 'Non renseigné'}</Text>
           </View>
           <Divider style={styles.divider} />
 
           <View style={styles.infoRow}>
             <Text style={styles.label}>Email</Text>
-            <Text style={styles.value}>{mechanic?.email || 'Non renseigné'}</Text>
+            <Text style={styles.value}>{user?.email || 'Non renseigné'}</Text>
           </View>
           <Divider style={styles.divider} />
 
           <View style={styles.infoRow}>
             <Text style={styles.label}>{entityLabel}</Text>
-            <Text style={styles.value}>{mechanic?.shop_name || (isFleetOwner ? 'Ma Flotte' : 'Non précisé')}</Text>
+            <Text style={styles.value}>{user?.shop_name || (isFleetOwner ? 'Ma Flotte' : 'Non précisé')}</Text>
           </View>
           <Divider style={styles.divider} />
 
           <View style={styles.infoRow}>
             <Text style={styles.label}>Localisation</Text>
-            <Text style={styles.value}>{mechanic?.location || 'Non renseignée'}</Text>
+            <Text style={styles.value}>{user?.location || 'Non renseignée'}</Text>
           </View>
         </Card.Content>
         <Card.Actions>
@@ -248,7 +248,7 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
         <Card.Content>
           <List.Item
             title="Plan d'abonnement"
-            description={`Actuel: ${mechanic?.subscription_tier || 'Aucun'}`}
+            description={`Actuel: ${user?.subscription_tier || 'Aucun'}`}
             left={props => <List.Icon {...props} icon="card-account-details" />}
             onPress={() => {
               loadPlans();
@@ -333,11 +333,11 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
                     description={`${formatPrice(plan.price)} FCFA - ${plan.tier}`}
                     right={props => (
                       <Button 
-                        mode={mechanic?.subscription_tier === plan.tier ? "contained" : "outlined"}
-                        disabled={mechanic?.subscription_tier === plan.tier}
+                        mode={user?.subscription_tier === plan.tier ? "contained" : "outlined"}
+                        disabled={user?.subscription_tier === plan.tier}
                         onPress={() => handleSelectPlan(plan)}
                       >
-                        {mechanic?.subscription_tier === plan.tier ? 'Actuel' : 'Choisir'}
+                        {user?.subscription_tier === plan.tier ? 'Actuel' : 'Choisir'}
                       </Button>
                     )}
                   />

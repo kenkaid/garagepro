@@ -27,7 +27,7 @@ export const ExpertiseScreen: React.FC<{navigation: any}> = ({navigation}) => {
           <Card.Actions>
             <Button
               mode="contained"
-              onPress={() => navigation.navigate('Scan', {scanType: 'expert'})}
+              onPress={() => navigation.navigate('Scan', {scanType: 'EXPERT'})}
               style={styles.button}>
               Lancer un scan expert
             </Button>

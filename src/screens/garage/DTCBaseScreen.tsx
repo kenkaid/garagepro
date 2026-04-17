@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {Card, Title, Paragraph, List, Divider} from 'react-native-paper';
-import {apiService} from '../services/apiService';
+import {apiService} from '../../services/apiService';
 
 export const DTCBaseScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);

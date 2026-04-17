@@ -18,12 +18,12 @@ import {
   Modal,
   Button,
 } from 'react-native-paper';
-import {useStore} from '../store/useStore';
-import {obdService} from '../services/obdService';
+import {useStore} from '../../store/useStore';
+import {obdService} from '../../services/obdService';
 
 const {width} = Dimensions.get('window');
 
-export const LiveMonitorScreen: React.FC = () => {
+export const FleetLiveMonitorScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const {currentOBDData, vehicleInfo, setOBDData, updateSingleOBDData} =
     useStore();
   const [isLive, setIsLive] = useState(false);
@@ -178,11 +178,11 @@ export const LiveMonitorScreen: React.FC = () => {
       <Surface style={styles.header} elevation={4}>
         <View style={styles.headerRow}>
           <View>
-            <Title style={styles.headerTitle}>Live Monitor</Title>
+            <Title style={styles.headerTitle}>Live Monitor Flotte</Title>
             <Text style={styles.headerSubtitle}>
               {vehicleInfo.connected
                 ? `Véhicule: ${vehicleInfo.licensePlate || vehicleInfo.deviceName || 'Connecté'}`
-                : 'Non connecté'}
+                : 'Suivi temps réel des capteurs'}
             </Text>
           </View>
           <IconButton

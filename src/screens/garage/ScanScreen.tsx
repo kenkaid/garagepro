@@ -19,10 +19,10 @@ import {
   Divider,
 } from 'react-native-paper';
 import {Device} from 'react-native-ble-plx';
-import {obdService} from '../services/obdService';
-import {apiService} from '../services/apiService';
-import {useStore} from '../store/useStore';
-import {ScanSession} from '../types';
+import {obdService} from '../../services/obdService';
+import {apiService} from '../../services/apiService';
+import {useStore} from '../../store/useStore';
+import {ScanSession} from '../../types';
 
 // Composant externe pour l'icône Bluetooth (évite création pendant render)
 const BluetoothIcon: React.FC = () => <List.Icon icon="bluetooth" />;
@@ -98,7 +98,7 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
     clearDTCs,
     setOBDData,
     addScanToHistory,
-    mechanic,
+    user,
     vehicleInfo,
     scanHistory,
   } = useStore();
@@ -306,7 +306,8 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
 
     try {
       setScanProgress(0.1);
-      const detectedDtcs = await obdService.readDTCs(scanType);
+      // Correction : passer le scanType à readDTCs
+      const detectedDtcs = await obdService.readDTCs(route.params?.scanType || scanType);
       detectedDtcs.forEach(item => addDTC(item));
 
       setScanProgress(0.4);
@@ -318,7 +319,9 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
       let mileageData = null;
       let safetyData = null;
 
-      if (scanType === 'expert' || scanType === 'security') {
+      const currentScanType = route.params?.scanType || scanType;
+
+      if (currentScanType === 'EXPERT' || currentScanType === 'expert' || currentScanType === 'security') {
         setScanProgress(0.7);
         mileageData = await obdService.readMileageData();
 
@@ -342,8 +345,9 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
         },
         // @ts-ignore
         dtcs: detectedDtcs,
+        found_dtcs: detectedDtcs,
         obdData,
-        mechanicId: mechanic?.id || 'unknown',
+        userId: user?.id || 'unknown',
         notes: '',
         mileage_ecu: mileageData?.ecu,
         mileage_abs: mileageData?.abs,
@@ -355,19 +359,23 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
         } : undefined,
       };
 
-      await apiService.saveScan({
+      const savedScan = await apiService.saveScan({
         ...scanSession,
         // @ts-ignore
-        scan_type: route.params?.scanType === 'verification' ? 'VERIFICATION' : 'DIAGNOSTIC'
+        scan_type: route.params?.scanType === 'verification' ? 'VERIFICATION' : (route.params?.scanType === 'EXPERT' ? 'EXPERT' : 'DIAGNOSTIC')
       });
-      addScanToHistory(scanSession);
+      addScanToHistory((savedScan || scanSession) as any);
 
       setScanProgress(1);
       Alert.alert(
         `${detectedDtcs.length} code(s) défaut trouvé(s). ${obdData.length} paramètres lus.`,
       );
 
-      navigation.navigate('Results');
+      const target = (route.params?.scanType === 'EXPERT' || scanType === 'EXPERT') ? 'ExpertResults' : 'Results';
+      navigation.navigate(target, {
+        scan: (savedScan || scanSession) as any,
+        scanType: route.params?.scanType || scanType
+      });
     } catch (error: any) {
       let errorMessage = 'Une erreur est survenue lors du diagnostic.';
       if (error?.response?.data) {

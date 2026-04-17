@@ -108,7 +108,7 @@ export interface ScanSession {
   obdData: OBDData[];
 
   /** ID du mécanicien */
-  mechanicId: string;
+  userId: string;
 
   /** Notes optionnelles */
   notes?: string;
@@ -128,7 +128,7 @@ export interface ScanSession {
 /**
  * Profil mécanicien
  */
-export interface Mechanic {
+export interface User {
   /** ID unique */
   id: string;
 
@@ -163,7 +163,7 @@ export interface Mechanic {
   subscription_tier?: string;
 
   /** Type d'utilisateur (Nouveau) */
-  user_type?: 'MECHANIC' | 'FLEET_OWNER';
+  user_type?: 'MECHANIC' | 'FLEET_OWNER' | 'INDIVIDUAL';
 
   /** Champs legacy (compatibilité) */
   name?: string;

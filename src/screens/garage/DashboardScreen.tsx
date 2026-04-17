@@ -1,13 +1,13 @@
 import React, {useEffect, useState} from 'react';
 import {View, StyleSheet, ScrollView, RefreshControl, Dimensions} from 'react-native';
 import {Card, Title, Text, Avatar, List, Surface, ProgressBar} from 'react-native-paper';
-import {apiService} from '../services/apiService';
-import {useStore} from '../store/useStore';
+import {apiService} from '../../services/apiService';
+import {useStore} from '../../store/useStore';
 
 const {width} = Dimensions.get('window');
 
 export const DashboardScreen: React.FC = () => {
-  const {mechanic} = useStore();
+  const {user} = useStore();
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -38,7 +38,7 @@ export const DashboardScreen: React.FC = () => {
     >
       <Surface style={styles.header} elevation={4}>
         <Title style={styles.headerTitle}>Bilan Financier</Title>
-        <Text style={styles.headerSubtitle}>{mechanic?.shop_name || 'Mon Garage'}</Text>
+        <Text style={styles.headerSubtitle}>{user?.shop_name || 'Mon Garage'}</Text>
       </Surface>
 
       <View style={styles.statsGrid}>

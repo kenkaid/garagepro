@@ -1,8 +1,8 @@
 import React, {useState} from 'react';
 import {View, StyleSheet, ScrollView, Alert, TouchableOpacity} from 'react-native';
 import {TextInput, Button, Text, Title, HelperText, SegmentedButtons} from 'react-native-paper';
-import {apiService} from '../services/apiService';
-import {useStore} from '../store/useStore';
+import {apiService} from '../../services/apiService';
+import {useStore} from '../../store/useStore';
 
 export const RegisterScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const [formData, setFormData] = useState({
@@ -17,7 +17,7 @@ export const RegisterScreen: React.FC<{navigation: any}> = ({navigation}) => {
     location: '',
     user_type: 'MECHANIC',
   });
-  const {setMechanic} = useStore();
+  const {setUser} = useStore();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -28,6 +28,8 @@ export const RegisterScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
   const handleRegister = async () => {
     const isMechanic = formData.user_type === 'MECHANIC';
+    const isFleet = formData.user_type === 'FLEET_OWNER';
+    const isIndividual = formData.user_type === 'INDIVIDUAL';
     
     if (!formData.username || !formData.password || !formData.phone) {
       Alert.alert('Erreur', 'Veuillez remplir les champs obligatoires (Username, Password, Phone)');
@@ -39,10 +41,12 @@ export const RegisterScreen: React.FC<{navigation: any}> = ({navigation}) => {
       return;
     }
 
-    if (!isMechanic && !formData.shop_name) {
+    if (isFleet && !formData.shop_name) {
       Alert.alert('Erreur', 'Veuillez renseigner le nom de votre flotte ou entreprise.');
       return;
     }
+
+    // Le champ shop_name peut être optionnel ou utilisé pour le nom du véhicule pour un particulier
 
     if (formData.password !== formData.confirm_password) {
       Alert.alert('Erreur', 'Les mots de passe ne correspondent pas.');
@@ -59,7 +63,7 @@ export const RegisterScreen: React.FC<{navigation: any}> = ({navigation}) => {
     setLoading(false);
 
     if (userData) {
-      setMechanic(userData);
+      setUser(userData);
       Alert.alert('Succès', 'Compte créé avec succès !', [
         {text: 'Continuer', onPress: () => navigation.replace('Main')},
       ]);
@@ -80,8 +84,9 @@ export const RegisterScreen: React.FC<{navigation: any}> = ({navigation}) => {
           value={formData.user_type}
           onValueChange={v => updateField('user_type', v)}
           buttons={[
-            {value: 'MECHANIC', label: 'Mécanicien', icon: 'wrench'},
-            {value: 'FLEET_OWNER', label: 'Propriétaire', icon: 'car-connected'},
+            {value: 'MECHANIC', label: 'Pro', icon: 'wrench'},
+            {value: 'FLEET_OWNER', label: 'Flotte', icon: 'car-connected'},
+            {value: 'INDIVIDUAL', label: 'Particulier', icon: 'account-outline'},
           ]}
           style={styles.segmented}
         />
@@ -173,7 +178,7 @@ export const RegisterScreen: React.FC<{navigation: any}> = ({navigation}) => {
               style={styles.input}
             />
           </>
-        ) : (
+        ) : formData.user_type === 'FLEET_OWNER' ? (
           <>
             <Text style={styles.section}>Flotte</Text>
             <TextInput
@@ -191,6 +196,24 @@ export const RegisterScreen: React.FC<{navigation: any}> = ({navigation}) => {
               style={styles.input}
             />
           </>
+        ) : (
+          <>
+            <Text style={styles.section}>Véhicule</Text>
+            <TextInput
+              label="Nom de mon véhicule (ex: Ma Peugeot 308)"
+              value={formData.shop_name}
+              onChangeText={v => updateField('shop_name', v)}
+              mode="outlined"
+              style={styles.input}
+            />
+            <TextInput
+              label="Ville / Commune"
+              value={formData.location}
+              onChangeText={v => updateField('location', v)}
+              mode="outlined"
+              style={styles.input}
+            />
+          </>
         )}
 
         <Button
@@ -199,7 +222,11 @@ export const RegisterScreen: React.FC<{navigation: any}> = ({navigation}) => {
           loading={loading}
           disabled={loading}
           style={styles.button}>
-          {formData.user_type === 'MECHANIC' ? 'Créer mon compte Pro' : 'Créer mon compte Client'}
+          {formData.user_type === 'MECHANIC' 
+            ? 'Créer mon compte Pro' 
+            : formData.user_type === 'FLEET_OWNER' 
+              ? 'Créer mon compte Flotte' 
+              : 'Créer mon compte Particulier'}
         </Button>
 
         <Button

@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {View, StyleSheet, ScrollView, RefreshControl} from 'react-native';
 import {Text, Card, Title, Paragraph, List, Avatar, IconButton, Badge} from 'react-native-paper';
-import {apiService} from '../services/apiService';
+import {apiService} from '../../services/apiService';
 
 export const FleetDashboardScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const [loading, setLoading] = useState(true);
@@ -40,7 +40,7 @@ export const FleetDashboardScreen: React.FC<{navigation: any}> = ({navigation}) 
   }
 
   return (
-    <ScrollView 
+    <ScrollView
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
@@ -61,7 +61,7 @@ export const FleetDashboardScreen: React.FC<{navigation: any}> = ({navigation}) 
 
       <Title style={styles.sectionTitle}>État de la Flotte</Title>
       {data?.fleet_status?.map((item: any, index: number) => (
-        <Card key={index} style={styles.vehicleCard} onPress={() => {}}>
+        <Card key={index} style={styles.vehicleCard} onPress={() => navigation.navigate('FleetLiveMonitor', {vehicleId: item.vehicle.id})}>
           <Card.Title
             title={item.vehicle.license_plate}
             subtitle={`${item.vehicle.brand} ${item.vehicle.model}`}
@@ -92,7 +92,7 @@ export const FleetDashboardScreen: React.FC<{navigation: any}> = ({navigation}) 
           </Card.Content>
         </Card>
       ))}
-      
+
       {(!data?.fleet_status || data.fleet_status.length === 0) && (
           <View style={styles.empty}>
               <Text>Aucun véhicule équipé de boîtier IoT pour le moment.</Text>

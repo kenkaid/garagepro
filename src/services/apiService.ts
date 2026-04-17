@@ -69,16 +69,16 @@ class APIService {
       this.token = token;
 
       // Après login, on récupère le profil complet (utilisant le nouveau format MechanicSerializer)
-      return await this.getCurrentMechanic();
+      return await this.getCurrentUser();
     } catch (error) {
       return null;
     }
   }
 
-  async register(mechanicData: any, password: string): Promise<any | null> {
+  async register(userData: any, password: string): Promise<any | null> {
     try {
       const response = await api.post('/register/', {
-        ...mechanicData,
+        ...userData,
         password,
       });
 
@@ -98,10 +98,10 @@ class APIService {
   }
 
   // Scans
-  async saveScan(scanData: any): Promise<null> {
+  async saveScan(scanData: any): Promise<any | null> {
     const token = await AsyncStorage.getItem('auth_token');
     if (!token) {
-      return false;
+      return null;
     }
 
     try {
@@ -125,6 +125,11 @@ class APIService {
         actual_labor_cost: scanData.actual_labor_cost || 0,
         actual_parts_cost: scanData.actual_parts_cost || 0,
         is_completed: scanData.is_completed || false,
+        scan_type: scanData.scan_type || 'DIAGNOSTIC',
+        mileage_ecu: scanData.mileage_ecu,
+        mileage_abs: scanData.mileage_abs,
+        mileage_dashboard: scanData.mileage_dashboard,
+        safety_check: scanData.safety_check,
       };
 
       // Si on a un ID (scan existant en historique), on l'envoie pour mise à jour
@@ -155,10 +160,12 @@ class APIService {
 
   async getMyReport(): Promise<any | null> {
     const token = await AsyncStorage.getItem('auth_token');
-    if (!token) return null;
+    if (!token) {
+      return null;
+    }
 
     try {
-      const response = await api.get('/mechanics/my_report/');
+      const response = await api.get('/users/my_report/');
       return response.data;
     } catch (error) {
       return null;
@@ -204,17 +211,19 @@ class APIService {
     return syncedCount;
   }
 
-  async getCurrentMechanic(): Promise<any | null> {
+  async getCurrentUser(): Promise<any | null> {
     const token = await AsyncStorage.getItem('auth_token');
-    if (!token) return null;
+    if (!token) {
+      return null;
+    }
 
     try {
-      const response = await api.get('/mechanics/current/');
+      const response = await api.get('/users/current/');
       return response.data;
     } catch (error) {
       // Fallback: essayer de récupérer le premier de la liste si /current/ échoue
       try {
-        const fallback = await api.get('/mechanics/');
+        const fallback = await api.get('/users/');
         return fallback.data[0] || null;
       } catch (e) {
         return null;
@@ -222,12 +231,14 @@ class APIService {
     }
   }
 
-  async updateMechanicProfile(data: any): Promise<any | null> {
+  async updateUserProfile(data: any): Promise<any | null> {
     const token = await AsyncStorage.getItem('auth_token');
-    if (!token) return null;
+    if (!token) {
+      return null;
+    }
 
     try {
-      const response = await api.patch('/mechanics/current/', data);
+      const response = await api.patch('/users/current/', data);
       return response.data;
     } catch (error) {
       return null;
@@ -244,7 +255,7 @@ class APIService {
 
     try {
       const response = await api.post(
-        '/mechanics/change_password/',
+        '/users/change_password/',
         passwordData,
       );
       return {success: true, message: response.data.message};
@@ -259,7 +270,9 @@ class APIService {
 
   async getSubscriptionPlans(): Promise<any[]> {
     const token = await AsyncStorage.getItem('auth_token');
-    if (!token) return [];
+    if (!token) {
+      return [];
+    }
 
     try {
       const response = await api.get('/plans/');
@@ -274,7 +287,9 @@ class APIService {
     months: number,
   ): Promise<any | null> {
     const token = await AsyncStorage.getItem('auth_token');
-    if (!token) return null;
+    if (!token) {
+      return null;
+    }
 
     try {
       const response = await api.get(
@@ -296,7 +311,7 @@ class APIService {
     if (!token) return null;
 
     try {
-      const response = await api.post('/mechanics/change_plan/', {
+      const response = await api.post('/users/change_plan/', {
         plan_id: planId,
         transaction_id: transactionId,
         duration_months: durationMonths,
@@ -315,7 +330,9 @@ class APIService {
 
   // Modèles de véhicules
   getAbsoluteUrl(url: string | null): string | null {
-    if (!url) return null;
+    if (!url) {
+      return null;
+    }
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
 
     // Si c'est une URL relative (/media/...), on ajoute la base
