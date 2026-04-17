@@ -56,6 +56,7 @@ export const VehicleInfoComponent: React.FC<VehicleInfoProps> = ({
       <Card.Content>
         <View style={styles.header}>
           <View style={styles.statusSection}>
+            {/* eslint-disable-next-line react-native/no-inline-styles */}
             <View style={[styles.statusDot, {backgroundColor: '#4CAF50'}]} />
             <Text style={styles.title}>Véhicule Connecté</Text>
           </View>

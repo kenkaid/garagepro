@@ -132,12 +132,18 @@ export class OBDParser {
   }
 
   // Parse les codes défaut (Mode 03)
-  static parseDTCs(data: number[]): string[] {
+  static parseDTCs(data: string): string[] {
     const dtcs: string[] = [];
-
-    for (let i = 0; i < data.length - 1; i += 2) {
-      const byte1 = data[i];
-      const byte2 = data[i + 1];
+    // Le format ELM327 pour le mode 03 est souvent des paires d'octets en hexadécimal.
+    // "43 01 03 01 04 00 00" -> 43 (mode 3 response), puis couples d'octets.
+    const clean = data.replace(/\s/g, '');
+    
+    for (let i = 0; i < clean.length - 3; i += 4) {
+      const byte1Hex = clean.substring(i, i + 2);
+      const byte2Hex = clean.substring(i + 2, i + 4);
+      
+      const byte1 = parseInt(byte1Hex, 16);
+      const byte2 = parseInt(byte2Hex, 16);
 
       if (byte1 === 0 && byte2 === 0) continue; // Padding
 

@@ -26,6 +26,15 @@ export interface DTCCode {
 
   /** Solutions suggérées */
   suggestedFixes: string[];
+
+  /** Nouveau : Explications visuelles et aides à la réparation */
+  partImageUrl?: string; // URL de l'image de la pièce concernée
+  partLocation?: string; // Description textuelle de l'emplacement (ex: "Sous la boîte à air")
+
+  /** Nouveau : Tarification et pièces */
+  estimatedLaborCost?: number; // Main d'œuvre estimée en FCFA
+  localPartPrice?: number; // Prix moyen pièce locale en FCFA
+  importPartPrice?: number; // Prix moyen pièce importée en FCFA
 }
 
 /**
@@ -69,6 +78,14 @@ export interface VehicleInfo {
 
   /** Numéro VIN du véhicule (17 caractères) */
   vin?: string;
+
+  /** Plaque d'immatriculation (ex: 1234AB01) */
+  licensePlate?: string;
+
+  /** Nouveaux champs pour identification manuelle */
+  brand?: string;
+  model?: string;
+  year?: number;
 }
 
 /**
@@ -95,6 +112,17 @@ export interface ScanSession {
 
   /** Notes optionnelles */
   notes?: string;
+
+  /** Données d'expertise (Anti-fraude & Sécurité) */
+  mileage_ecu?: number;
+  mileage_abs?: number;
+  mileage_dashboard?: number;
+  safety_check?: {
+    has_crash_data: boolean;
+    airbags_deployed: number;
+    impact_sensors_count: number;
+    notes?: string;
+  };
 }
 
 /**
@@ -104,23 +132,42 @@ export interface Mechanic {
   /** ID unique */
   id: string;
 
-  /** Nom complet */
-  name: string;
+  /** Nom d'utilisateur */
+  username?: string;
+
+  /** Prénom */
+  first_name?: string;
+
+  /** Nom de famille */
+  last_name?: string;
+
+  /** Email */
+  email?: string;
 
   /** Numéro de téléphone (identifiant) */
   phone: string;
 
   /** Nom du garage/atelier */
-  shopName: string;
+  shop_name: string;
 
   /** Localisation (quartier/ville) */
   location: string;
 
-  /** Niveau de certification */
-  certificationLevel: 'beginner' | 'intermediate' | 'expert';
+  /** Statut actif */
+  is_active?: boolean;
 
-  /** Nombre de diagnostics effectués */
-  scansCount: number;
+  /** Date de création */
+  created_at?: string;
+
+  /** Niveau d'abonnement */
+  subscription_tier?: string;
+
+  /** Type d'utilisateur (Nouveau) */
+  user_type?: 'MECHANIC' | 'FLEET_OWNER';
+
+  /** Champs legacy (compatibilité) */
+  name?: string;
+  shopName?: string;
 }
 
 /**
