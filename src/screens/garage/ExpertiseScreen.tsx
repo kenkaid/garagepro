@@ -1,13 +1,13 @@
 import React from 'react';
-import {View, StyleSheet, ScrollView, TouchableOpacity} from 'react-native';
-import {Card, Title, Text, Avatar, List, Surface, Divider, Button} from 'react-native-paper';
+import {View, StyleSheet, ScrollView, Text as RNText} from 'react-native';
+import {Card, Avatar, Surface, Divider, Button, Text} from 'react-native-paper';
 
 export const ExpertiseScreen: React.FC<{navigation: any}> = ({navigation}) => {
   return (
     <ScrollView style={styles.container}>
       <Surface style={styles.header} elevation={4}>
-        <Title style={styles.headerTitle}>Expertise Occasion</Title>
-        <Text style={styles.headerSubtitle}>Anti-fraude & Sécurité</Text>
+        <Text variant="titleLarge" style={styles.headerTitle}>Expertise Occasion</Text>
+        <RNText style={styles.headerSubtitle}>Anti-fraude & Sécurité</RNText>
       </Surface>
 
       <View style={styles.content}>
@@ -16,10 +16,10 @@ export const ExpertiseScreen: React.FC<{navigation: any}> = ({navigation}) => {
             <View style={styles.row}>
               <Avatar.Icon size={48} icon="speedometer" style={styles.iconBlue} />
               <View style={styles.textContainer}>
-                <Title>Certification Kilométrique</Title>
-                <Text style={styles.description}>
+                <Text variant="titleMedium">Certification Kilométrique</Text>
+                <RNText style={styles.description}>
                   Compare les données du tableau de bord avec les calculateurs ABS et Moteur pour détecter les fraudes.
-                </Text>
+                </RNText>
               </View>
             </View>
           </Card.Content>
@@ -39,10 +39,10 @@ export const ExpertiseScreen: React.FC<{navigation: any}> = ({navigation}) => {
             <View style={styles.row}>
               <Avatar.Icon size={48} icon="shield-check" style={styles.iconGreen} />
               <View style={styles.textContainer}>
-                <Title>Audit de Sécurité (Airbags)</Title>
-                <Text style={styles.description}>
+                <Text variant="titleMedium">Audit de Sécurité (Airbags)</Text>
+                <RNText style={styles.description}>
                   Analyse profonde du module SRS pour détecter des déploiements passés ou des "Crash Data" masqués.
-                </Text>
+                </RNText>
               </View>
             </View>
           </Card.Content>
@@ -59,10 +59,10 @@ export const ExpertiseScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
         <Card style={styles.infoCard}>
           <Card.Content>
-            <Title style={styles.infoTitle}>Note importante</Title>
-            <Text style={styles.infoText}>
+            <Text variant="titleSmall" style={styles.infoTitle}>Note importante</Text>
+            <RNText style={styles.infoText}>
               L'utilisation d'un adaptateur compatible (vLinker, OBDLink ou ELM327 V1.5 original) est recommandée pour interroger les modules profonds (ABS/SRS). Votre ELM327 V2.1 actuel pourra lire les données moteur mais pourrait être limité pour l'ABS.
-            </Text>
+            </RNText>
           </Card.Content>
         </Card>
       </View>

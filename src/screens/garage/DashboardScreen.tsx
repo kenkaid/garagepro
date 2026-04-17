@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
-import {View, StyleSheet, ScrollView, RefreshControl, Dimensions} from 'react-native';
-import {Card, Title, Text, Avatar, List, Surface, ProgressBar} from 'react-native-paper';
+import {View, StyleSheet, ScrollView, RefreshControl, Dimensions, Text as RNText} from 'react-native';
+import {Card, Avatar, List, Surface, Text} from 'react-native-paper';
 import {apiService} from '../../services/apiService';
 import {useStore} from '../../store/useStore';
 
@@ -37,17 +37,17 @@ export const DashboardScreen: React.FC = () => {
       }
     >
       <Surface style={styles.header} elevation={4}>
-        <Title style={styles.headerTitle}>Bilan Financier</Title>
-        <Text style={styles.headerSubtitle}>{user?.shop_name || 'Mon Garage'}</Text>
+        <Text variant="titleLarge" style={styles.headerTitle}>Bilan Financier</Text>
+        <RNText style={styles.headerSubtitle}>{user?.shop_name || 'Mon Garage'}</RNText>
       </Surface>
 
       <View style={styles.statsGrid}>
         <Card style={styles.mainCard}>
           <Card.Content style={styles.mainCardContent}>
-            <Text style={styles.label}>CHIFFRE D'AFFAIRES TOTAL</Text>
-            <Title style={styles.revenue}>
+            <RNText style={styles.label}>CHIFFRE D'AFFAIRES TOTAL</RNText>
+            <Text variant="headlineMedium" style={styles.revenue}>
               {report?.total_revenue?.toLocaleString() || '0'} {report?.currency || 'FCFA'}
-            </Title>
+            </Text>
           </Card.Content>
         </Card>
 
@@ -55,26 +55,26 @@ export const DashboardScreen: React.FC = () => {
           <Card style={styles.smallCard}>
             <Card.Content style={styles.centered}>
               <Avatar.Icon size={40} icon="check-circle" style={styles.iconBlue} />
-              <Text style={styles.smallLabel}>TRAVAUX FINIS</Text>
-              <Title style={styles.smallValue}>{report?.total_scans_completed || 0}</Title>
+              <RNText style={styles.smallLabel}>TRAVAUX FINIS</RNText>
+              <Text variant="titleLarge" style={styles.smallValue}>{report?.total_scans_completed || 0}</Text>
             </Card.Content>
           </Card>
 
           <Card style={styles.smallCard}>
             <Card.Content style={styles.centered}>
               <Avatar.Icon size={40} icon="trending-up" style={styles.iconGreen} />
-              <Text style={styles.smallLabel}>MOYENNE / SCAN</Text>
-              <Title style={styles.smallValue}>
+              <RNText style={styles.smallLabel}>MOYENNE / SCAN</RNText>
+              <Text variant="titleLarge" style={styles.smallValue}>
                 {report?.total_scans_completed > 0 
                   ? Math.round(report.total_revenue / report.total_scans_completed).toLocaleString()
                   : '0'}
-              </Title>
+              </Text>
             </Card.Content>
           </Card>
         </View>
       </View>
 
-      <Title style={styles.sectionTitle}>Évolution (6 derniers mois)</Title>
+      <Text variant="titleMedium" style={styles.sectionTitle}>Évolution (6 derniers mois)</Text>
       <Card style={styles.chartCard}>
         <View style={styles.chartContainer}>
           {report?.monthly_history?.map((item: any, index: number) => (
@@ -85,22 +85,22 @@ export const DashboardScreen: React.FC = () => {
                   { height: (item.revenue / maxRevenue) * 100 + 5 }
                 ]} 
               />
-              <Text style={styles.barLabel}>{item.month}</Text>
+              <RNText style={styles.barLabel}>{item.month}</RNText>
             </View>
           ))}
         </View>
       </Card>
 
-      <Title style={styles.sectionTitle}>Détails des gains</Title>
+      <Text variant="titleMedium" style={styles.sectionTitle}>Détails des gains</Text>
       <Card style={styles.listCard}>
         <List.Item
           title="Main d'œuvre"
           description="Total cumulé sur vos diagnostics terminés"
           left={props => <List.Icon {...props} icon="account-hard-hat" />}
           right={() => (
-            <Text style={styles.listValue}>
+            <RNText style={styles.listValue}>
               {report?.total_labor?.toLocaleString() || '0'} {report?.currency}
-            </Text>
+            </RNText>
           )}
         />
         <List.Item
@@ -108,16 +108,16 @@ export const DashboardScreen: React.FC = () => {
           description="Total des pièces facturées via l'app"
           left={props => <List.Icon {...props} icon="cog" />}
           right={() => (
-            <Text style={styles.listValue}>
+            <RNText style={styles.listValue}>
               {report?.total_parts?.toLocaleString() || '0'} {report?.currency}
-            </Text>
+            </RNText>
           )}
         />
       </Card>
 
-      <Text style={styles.info}>
+      <RNText style={styles.info}>
         * Ce bilan est calculé sur la base des diagnostics marqués comme "Terminés" sur le serveur.
-      </Text>
+      </RNText>
     </ScrollView>
   );
 };

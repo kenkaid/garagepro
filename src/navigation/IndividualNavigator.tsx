@@ -1,6 +1,8 @@
 import React from 'react';
 import {createStackNavigator} from '@react-navigation/stack';
 import PersonalDashboardScreen from '../screens/individual/PersonalDashboardScreen';
+import AddPersonalVehicleScreen from '../screens/individual/AddPersonalVehicleScreen';
+import IndividualSettingsScreen from '../screens/individual/IndividualSettingsScreen';
 import {ProfileScreen} from '../screens/shared/ProfileScreen';
 import {SubscriptionScreen} from '../screens/shared/SubscriptionScreen';
 import {UpcomingModulesScreen} from '../screens/shared/UpcomingModulesScreen';
@@ -21,9 +23,19 @@ export const IndividualNavigator = () => (
       options={{title: 'Mon Véhicule'}}
     />
     <Stack.Screen
+      name="AddVehicle"
+      component={AddPersonalVehicleScreen}
+      options={{title: 'Ajouter un Véhicule'}}
+    />
+    <Stack.Screen
       name="Profile"
       component={ProfileScreen}
       options={{title: 'Mon Profil'}}
+    />
+    <Stack.Screen
+      name="Settings"
+      component={IndividualSettingsScreen}
+      options={{title: 'Paramètres'}}
     />
     <Stack.Screen
       name="Subscriptions"

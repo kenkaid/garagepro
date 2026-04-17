@@ -1,5 +1,6 @@
 // src/services/obdService.ts
 import {BleManager, Device} from 'react-native-ble-plx';
+import BleManagerRN from 'react-native-ble-manager';
 import {PermissionsAndroid, Platform} from 'react-native';
 import {getDTCInfo} from '../utils/dtcDatabase';
 import {DTCCode, OBDData} from '../types';
@@ -65,22 +66,73 @@ class OBDService {
     this.connectedDevice = device;
   }
 
+  async ensureBluetoothEnabled(): Promise<boolean> {
+    if (Platform.OS !== 'android') {
+      return true;
+    }
+
+    try {
+      // Demander les permissions d'abord
+      const hasPermission = await this.requestPermissions();
+      if (!hasPermission) {
+        console.warn('[OBDService] Permissions Bluetooth non accordées');
+        return false;
+      }
+
+      // Vérifier l'état actuel
+      const state = await this.manager.state();
+      if (state === 'PoweredOn') {
+        return true;
+      }
+
+      // Utiliser react-native-ble-manager qui utilise l'Intent Android natif ACTION_REQUEST_ENABLE
+      // C'est la seule méthode qui fonctionne sur Android 12+
+      console.log('[DEBUG_LOG] [OBDService] Initialisation BleManagerRN...');
+      await BleManagerRN.start({showAlert: true});
+      console.log('[DEBUG_LOG] [OBDService] Appel enableBluetooth() via Intent natif Android...');
+      await BleManagerRN.enableBluetooth();
+      console.log('[DEBUG_LOG] [OBDService] enableBluetooth() réussi ou Intent lancé');
+      return true;
+    } catch (error: any) {
+      console.error('[OBDService] Erreur activation Bluetooth:', error);
+      return false;
+    }
+  }
+
   async requestPermissions(): Promise<boolean> {
     if (Platform.OS === 'android') {
+      console.log('[OBDService] requestPermissions: Demande de permissions...');
       const granted = await PermissionsAndroid.requestMultiple([
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
         PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
       ]);
-      return Object.values(granted).every(
+
+      console.log('[OBDService] requestPermissions: Résultats =', granted);
+
+      const allGranted = Object.values(granted).every(
         p => p === PermissionsAndroid.RESULTS.GRANTED,
       );
+
+      if (!allGranted) {
+        console.warn('[OBDService] requestPermissions: Certaines permissions ont été refusées');
+      }
+
+      return allGranted;
     }
     return true;
   }
 
   async scanForDevices(timeout: number = 5000): Promise<Device[]> {
     this._timeout = timeout;
+
+    // S'assurer que le Bluetooth est activé avant de scanner
+    const enabled = await this.ensureBluetoothEnabled();
+    if (!enabled && !MOCK_MODE) {
+      console.warn('[OBDService] scanForDevices: Scan annulé car le Bluetooth n\'est pas actif');
+      return [];
+    }
+
     if (MOCK_MODE) {
       // Simule un délai de scan puis retourne le mock
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -93,6 +145,10 @@ class OBDService {
 
   async connectToDevice(device: Device): Promise<boolean> {
     this.device = device;
+
+    // S'assurer que le Bluetooth est activé avant de se connecter
+    await this.ensureBluetoothEnabled();
+
     if (MOCK_MODE) {
       this.device = MOCK_DEVICE;
       this.mockConnected = true;

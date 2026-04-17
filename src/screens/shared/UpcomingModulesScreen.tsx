@@ -6,10 +6,10 @@ import {
   ScrollView,
   FlatList,
   RefreshControl,
-  Text,
   useWindowDimensions,
+  Text as RNText,
 } from 'react-native';
-import {Card, Title, Paragraph, Badge, Chip, ActivityIndicator, Divider} from 'react-native-paper';
+import {Card, Badge, Chip, ActivityIndicator, Divider, Text} from 'react-native-paper';
 import RenderHtml from 'react-native-render-html';
 import {apiService} from '../../services/apiService';
 
@@ -60,7 +60,7 @@ export const UpcomingModulesScreen: React.FC = () => {
     <Card style={styles.card}>
       <Card.Content>
         <View style={styles.headerRow}>
-          <Title style={styles.moduleName}>{item.name}</Title>
+          <Text variant="titleMedium" style={styles.moduleName}>{item.name}</Text>
           <Badge style={styles.dateBadge}>Prévu: {formatDate(item.expectedReleaseDate || item.expected_release_date)}</Badge>
         </View>
         <Divider style={styles.divider} />
@@ -71,11 +71,11 @@ export const UpcomingModulesScreen: React.FC = () => {
             baseStyle={styles.description}
           />
         ) : (
-          <Paragraph style={styles.description}>{item.description}</Paragraph>
+          <RNText style={styles.description}>{item.description}</RNText>
         )}
 
         <View style={styles.footer}>
-          <Text style={styles.planLabel}>Inclus dans :</Text>
+          <RNText style={styles.planLabel}>Inclus dans :</RNText>
           {item.applicablePlans && item.applicablePlans.length > 0 ? (
             <View style={styles.planChipsContainer}>
               {item.applicablePlans.map((plan: any) => (
@@ -105,7 +105,7 @@ export const UpcomingModulesScreen: React.FC = () => {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#1976D2" />
-        <Text style={styles.loadingText}>Chargement des nouveautés...</Text>
+        <RNText style={styles.loadingText}>Chargement des nouveautés...</RNText>
       </View>
     );
   }
@@ -113,10 +113,10 @@ export const UpcomingModulesScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.infoBox}>
-        <Text style={styles.infoTitle}>🚀 Modules en préparation</Text>
-        <Text style={styles.infoSubtitle}>
+        <RNText style={styles.infoTitle}>🚀 Modules en préparation</RNText>
+        <RNText style={styles.infoSubtitle}>
           Découvrez les fonctionnalités sur lesquelles nous travaillons pour améliorer votre quotidien.
-        </Text>
+        </RNText>
       </View>
 
       <FlatList
@@ -129,7 +129,7 @@ export const UpcomingModulesScreen: React.FC = () => {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Aucun module prévu pour le moment.</Text>
+            <RNText style={styles.emptyText}>Aucun module prévu pour le moment.</RNText>
           </View>
         }
       />

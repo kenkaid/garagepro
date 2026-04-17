@@ -1,8 +1,6 @@
 import React, {useState, useEffect} from 'react';
-import {View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert} from 'react-native';
+import {View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Text as RNText} from 'react-native';
 import {
-  Title,
-  Text,
   Button,
   Card,
   List,
@@ -13,6 +11,7 @@ import {
   Dialog,
   Avatar,
   TextInput,
+  Text,
 } from 'react-native-paper';
 import {apiService} from '../../services/apiService';
 import {useStore} from '../../store/useStore';
@@ -73,8 +72,8 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
     setPaymentLoading(false);
 
     if (result) {
-      const updatedMechanic = await apiService.getCurrentMechanic();
-      if (updatedMechanic) setUser(updatedMechanic);
+      const updatedUser = await apiService.getCurrentUser();
+      if (updatedUser) setUser(updatedUser);
       setShowPaymentMethods(false);
       setShowQuotation(false);
       Alert.alert('Succès', `Votre abonnement via ${method} a été activé !`);
@@ -86,32 +85,50 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
 
   const renderScanExample = (tier: string) => {
     switch (tier) {
+      case 'TRIAL':
+        return (
+          <View style={styles.exampleContainer}>
+            <RNText style={styles.exampleTitle}>Période d'essai gratuite :</RNText>
+            <View style={[styles.scanBox, {borderColor: '#FF9800', backgroundColor: '#FFF3E0'}]}>
+              <View style={styles.aiBadge}>
+                <RNText style={styles.aiBadgeText}>OFFERT</RNText>
+              </View>
+              <RNText style={styles.scanCode}>ACCÈS TOTAL</RNText>
+              <RNText style={styles.scanDesc}>Profitez de toutes les fonctionnalités premium pendant 14 jours.</RNText>
+              <Divider style={{marginVertical: 5}} />
+              <RNText style={styles.aiTitle}>Inclus :</RNText>
+              <RNText style={styles.aiText}>• Diagnostic IA complet</RNText>
+              <RNText style={styles.aiText}>• Estimations de prix locales</RNText>
+              <RNText style={styles.aiText}>• Historique illimité</RNText>
+            </View>
+          </View>
+        );
       case 'BASIC':
         return (
           <View style={styles.exampleContainer}>
-            <Text style={styles.exampleTitle}>Exemple de Scan Basique :</Text>
+            <RNText style={styles.exampleTitle}>Exemple de Scan Basique :</RNText>
             <View style={styles.scanBox}>
-              <Text style={styles.scanCode}>P0300</Text>
-              <Text style={styles.scanDesc}>Ratés d'allumage aléatoires détectés</Text>
-              <Text style={styles.scanLimit}>❌ Pas de détails sur les causes</Text>
-              <Text style={styles.scanLimit}>❌ Pas d'estimation de prix</Text>
+              <RNText style={styles.scanCode}>P0300</RNText>
+              <RNText style={styles.scanDesc}>Ratés d'allumage aléatoires détectés</RNText>
+              <RNText style={styles.scanLimit}>❌ Pas de détails sur les causes</RNText>
+              <RNText style={styles.scanLimit}>❌ Pas d'estimation de prix</RNText>
             </View>
           </View>
         );
       case 'PREMIUM':
         return (
           <View style={styles.exampleContainer}>
-            <Text style={styles.exampleTitle}>Exemple de Scan Premium :</Text>
+            <RNText style={styles.exampleTitle}>Exemple de Scan Premium :</RNText>
             <View style={[styles.scanBox, {borderColor: '#C0C0C0'}]}>
-              <Text style={styles.scanCode}>P0300</Text>
-              <Text style={styles.scanDesc}>Ratés d'allumage aléatoires détectés</Text>
+              <RNText style={styles.scanCode}>P0300</RNText>
+              <RNText style={styles.scanDesc}>Ratés d'allumage aléatoires détectés</RNText>
               <View style={styles.featureRow}>
                 <IconButton icon="check" color="green" size={16} />
-                <Text>Historique illimité du véhicule</Text>
+                <RNText>Historique illimité du véhicule</RNText>
               </View>
               <View style={styles.featureRow}>
                 <IconButton icon="check" color="green" size={16} />
-                <Text>Suivi des réparations passées</Text>
+                <RNText>Suivi des réparations passées</RNText>
               </View>
             </View>
           </View>
@@ -119,20 +136,20 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
       case 'ULTIMATE':
         return (
           <View style={styles.exampleContainer}>
-            <Text style={styles.exampleTitle}>Exemple de Scan Ultimate (IA) :</Text>
+            <RNText style={styles.exampleTitle}>Exemple de Scan Ultimate (IA) :</RNText>
             <View style={[styles.scanBox, {borderColor: '#FFD700', backgroundColor: '#FFFDF0'}]}>
               <View style={styles.aiBadge}>
-                <Text style={styles.aiBadgeText}>IA ANALYSE</Text>
+                <RNText style={styles.aiBadgeText}>IA ANALYSE</RNText>
               </View>
-              <Text style={styles.scanCode}>P0300</Text>
-              <Text style={styles.scanDesc}>Ratés d'allumage aléatoires détectés</Text>
+              <RNText style={styles.scanCode}>P0300</RNText>
+              <RNText style={styles.scanDesc}>Ratés d'allumage aléatoires détectés</RNText>
               <Divider style={{marginVertical: 5}} />
-              <Text style={styles.aiTitle}>Causes Probables (IA) :</Text>
-              <Text style={styles.aiText}>• Bougies d'allumage usées (85%)</Text>
-              <Text style={styles.aiText}>• Bobine d'allumage défaillante (10%)</Text>
+              <RNText style={styles.aiTitle}>Causes Probables (IA) :</RNText>
+              <RNText style={styles.aiText}>• Bougies d'allumage usées (85%)</RNText>
+              <RNText style={styles.aiText}>• Bobine d'allumage défaillante (10%)</RNText>
               <Divider style={{marginVertical: 5}} />
-              <Text style={styles.aiTitle}>Estimation Côte d'Ivoire :</Text>
-              <Text style={styles.aiPrice}>Pièces: ~15 000 FCFA | Main d'œuvre: ~5 000 FCFA</Text>
+              <RNText style={styles.aiTitle}>Estimation Côte d'Ivoire :</RNText>
+              <RNText style={styles.aiPrice}>Pièces: ~15 000 FCFA | Main d'œuvre: ~5 000 FCFA</RNText>
             </View>
           </View>
         );
@@ -143,6 +160,7 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
 
   const getTierIcon = (tier: string) => {
     switch (tier) {
+      case 'TRIAL': return 'gift';
       case 'BASIC': return 'check-circle-outline';
       case 'PREMIUM': return 'star-circle';
       case 'ULTIMATE': return 'brain';
@@ -152,6 +170,7 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
 
   const getTierColor = (tier: string) => {
     switch (tier) {
+      case 'TRIAL': return '#FF9800';
       case 'ULTIMATE': return '#9C27B0';
       case 'PREMIUM': return '#1976D2';
       case 'BASIC': return '#4CAF50';
@@ -163,7 +182,7 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1976D2" />
-        <Text style={{marginTop: 10}}>Chargement des offres...</Text>
+        <RNText style={{marginTop: 10}}>Chargement des offres...</RNText>
       </View>
     );
   }
@@ -171,22 +190,47 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Title style={styles.headerTitle}>Choisissez votre puissance</Title>
-        <Text style={styles.headerSub}>Des outils adaptés à la taille de votre garage</Text>
+        <Text variant="headlineSmall" style={styles.headerTitle}>Choisissez votre puissance</Text>
+        <RNText style={styles.headerSub}>Des outils adaptés à la taille de votre garage</RNText>
       </View>
+
+      {user?.is_trial && (
+        <Card style={[styles.card, styles.activeCard, {borderColor: '#FF9800'}]}>
+          <View style={[styles.planHeader, {backgroundColor: '#FF9800'}]}>
+            <View style={styles.planTitleRow}>
+              <IconButton icon="gift" color="white" size={24} />
+              <Text variant="titleLarge" style={styles.planTitle}>{user?.active_subscription?.plan?.name || "Essai Gratuit"}</Text>
+            </View>
+            <RNText style={styles.planPrice}>ACTIF <RNText style={{fontSize: 14}}>(Offert)</RNText></RNText>
+          </View>
+          <Card.Content style={styles.cardContent}>
+            <RNText style={styles.description}>Vous bénéficiez actuellement de votre période d'essai gratuite.</RNText>
+            {renderScanExample('TRIAL')}
+            <Button
+              mode="outlined"
+              onPress={() => {}}
+              style={styles.subscribeBtn}
+              color="#FF9800"
+              disabled={true}
+            >
+              PLAN ACTUEL
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
 
       {plans.map((plan) => (
         <Card key={plan.id} style={[styles.card, user?.subscription_tier === plan.tier && styles.activeCard]}>
           <View style={[styles.planHeader, {backgroundColor: getTierColor(plan.tier)}]}>
             <View style={styles.planTitleRow}>
               <IconButton icon={getTierIcon(plan.tier)} color="white" size={24} />
-              <Title style={styles.planTitle}>{plan.name}</Title>
+              <Text variant="titleLarge" style={styles.planTitle}>{plan.name}</Text>
             </View>
-            <Text style={styles.planPrice}>{formatPrice(plan.price)} FCFA <Text style={{fontSize: 14}}>/ mois</Text></Text>
+            <RNText style={styles.planPrice}>{formatPrice(plan.price)} FCFA <RNText style={{fontSize: 14}}>/ mois</RNText></RNText>
           </View>
 
           <Card.Content style={styles.cardContent}>
-            <Text style={styles.description}>{plan.description}</Text>
+            <RNText style={styles.description}>{plan.description}</RNText>
 
             {renderScanExample(plan.tier)}
 
@@ -210,7 +254,7 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
         <Dialog visible={showQuotation} onDismiss={() => setShowQuotation(false)}>
           <Dialog.Title>Votre Devis : {selectedPlan?.name}</Dialog.Title>
           <Dialog.Content>
-            <Text style={{marginBottom: 10}}>Choisissez la durée (mois) :</Text>
+            <RNText style={{marginBottom: 10}}>Choisissez la durée (mois) :</RNText>
             <TextInput
               label="Nombre de mois"
               value={durationMonths}
@@ -228,13 +272,13 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
             ) : quotation ? (
               <View style={styles.quotationBox}>
                 <View style={styles.infoRow}>
-                  <Text>Prix mensuel</Text>
-                  <Text style={styles.value}>{formatPrice(quotation.price_per_month)} FCFA</Text>
+                  <RNText>Prix mensuel</RNText>
+                  <RNText style={styles.value}>{formatPrice(quotation.price_per_month)} FCFA</RNText>
                 </View>
                 <Divider style={{marginVertical: 10}} />
                 <View style={styles.infoRow}>
-                  <Title>TOTAL</Title>
-                  <Title style={{color: '#1976D2'}}>{formatPrice(quotation.total_price)} FCFA</Title>
+                  <Text variant="titleLarge">TOTAL</Text>
+                  <Text variant="titleLarge" style={{color: '#1976D2'}}>{formatPrice(quotation.total_price)} FCFA</Text>
                 </View>
               </View>
             ) : null}

@@ -1,8 +1,6 @@
 import React, {useState, useEffect} from 'react';
-import {View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert} from 'react-native';
+import {View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Text as RNText} from 'react-native';
 import {
-  Title,
-  Text,
   Button,
   Card,
   List,
@@ -13,6 +11,7 @@ import {
   Dialog,
   Avatar,
   TextInput,
+  Text,
 } from 'react-native-paper';
 import {apiService} from '../../services/apiService';
 import {useStore} from '../../store/useStore';
@@ -73,8 +72,8 @@ export const FleetSubscriptionScreen: React.FC<{navigation: any}> = ({navigation
     setPaymentLoading(false);
 
     if (result) {
-      const updatedMechanic = await apiService.getCurrentMechanic();
-      if (updatedMechanic) setUser(updatedMechanic);
+      const updatedUser = await apiService.getCurrentUser();
+      if (updatedUser) setUser(updatedUser);
       setShowPaymentMethods(false);
       setShowQuotation(false);
       Alert.alert('Succès', `Votre abonnement via ${method} a été activé !`);
@@ -89,40 +88,40 @@ export const FleetSubscriptionScreen: React.FC<{navigation: any}> = ({navigation
       case 'FLEET_BASIC':
         return (
           <View style={styles.exampleContainer}>
-            <Text style={styles.exampleTitle}>Fonctionnalités Flotte Basique :</Text>
+            <RNText style={styles.exampleTitle}>Fonctionnalités Flotte Basique :</RNText>
             <View style={styles.scanBox}>
-              <Text style={styles.scanCode}>Suivi GPS Simple</Text>
-              <Text style={styles.scanDesc}>Localisation en temps réel de vos véhicules</Text>
-              <Text style={styles.scanLimit}>❌ Pas d'historique de trajet</Text>
-              <Text style={styles.scanLimit}>❌ Pas de rapports de consommation</Text>
+              <RNText style={styles.scanCode}>Suivi GPS Simple</RNText>
+              <RNText style={styles.scanDesc}>Localisation en temps réel de vos véhicules</RNText>
+              <RNText style={styles.scanLimit}>❌ Pas d'historique de trajet</RNText>
+              <RNText style={styles.scanLimit}>❌ Pas de rapports de consommation</RNText>
             </View>
           </View>
         );
       case 'FLEET_PRO':
         return (
           <View style={styles.exampleContainer}>
-            <Text style={styles.exampleTitle}>Fonctionnalités Flotte Pro :</Text>
+            <RNText style={styles.exampleTitle}>Fonctionnalités Flotte Pro :</RNText>
             <View style={[styles.scanBox, {borderColor: '#1A237E', backgroundColor: '#E8EAF6'}]}>
               <View style={styles.aiBadge}>
-                <Text style={styles.aiBadgeText}>PREMIUM</Text>
+                <RNText style={styles.aiBadgeText}>PREMIUM</RNText>
               </View>
-              <Text style={styles.scanCode}>Maintenance Prédictive</Text>
-              <Text style={styles.scanDesc}>Alertes avant les pannes et suivi d'usure</Text>
+              <RNText style={styles.scanCode}>Maintenance Prédictive</RNText>
+              <RNText style={styles.scanDesc}>Alertes avant les pannes et suivi d'usure</RNText>
               <Divider style={{marginVertical: 5}} />
-              <Text style={styles.aiTitle}>Inclus dans l'offre :</Text>
-              <Text style={styles.aiText}>• Géofencing & Rapports détaillés</Text>
-              <Text style={styles.aiText}>• Analyse du comportement conducteur</Text>
+              <RNText style={styles.aiTitle}>Inclus dans l'offre :</RNText>
+              <RNText style={styles.aiText}>• Géofencing & Rapports détaillés</RNText>
+              <RNText style={styles.aiText}>• Analyse du comportement conducteur</RNText>
               <Divider style={{marginVertical: 5}} />
-              <Text style={styles.aiTitle}>Économies estimées :</Text>
-              <Text style={styles.aiPrice}>Jusqu'à -20% sur les coûts de carburant</Text>
+              <RNText style={styles.aiTitle}>Économies estimées :</RNText>
+              <RNText style={styles.aiPrice}>Jusqu'à -20% sur les coûts de carburant</RNText>
             </View>
           </View>
         );
       default:
         return (
           <View style={styles.exampleContainer}>
-            <Text style={styles.exampleTitle}>Fonctionnalités Standards :</Text>
-            <Text style={styles.scanDesc}>Accès aux outils de monitoring de base pour votre flotte.</Text>
+            <RNText style={styles.exampleTitle}>Fonctionnalités Standards :</RNText>
+            <RNText style={styles.scanDesc}>Accès aux outils de monitoring de base pour votre flotte.</RNText>
           </View>
         );
     }
@@ -148,7 +147,7 @@ export const FleetSubscriptionScreen: React.FC<{navigation: any}> = ({navigation
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1976D2" />
-        <Text style={{marginTop: 10}}>Chargement des offres...</Text>
+        <RNText style={{marginTop: 10}}>Chargement des offres...</RNText>
       </View>
     );
   }
@@ -156,22 +155,61 @@ export const FleetSubscriptionScreen: React.FC<{navigation: any}> = ({navigation
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Title style={styles.headerTitle}>Gestion de Flotte</Title>
-        <Text style={styles.headerSub}>Des solutions pour optimiser vos opérations</Text>
+        <Text variant="headlineSmall" style={styles.headerTitle}>Gestion de Flotte</Text>
+        <RNText style={styles.headerSub}>Des solutions pour optimiser vos opérations</RNText>
       </View>
+
+      {user?.is_trial && (
+        <Card style={[styles.card, styles.activeCard, {borderColor: '#FF9800'}]}>
+          <View style={[styles.planHeader, {backgroundColor: '#FF9800'}]}>
+            <View style={styles.planTitleRow}>
+              <IconButton icon="gift" color="white" size={24} />
+              <Text variant="titleLarge" style={styles.planTitle}>Essai Flotte Gratuit</Text>
+            </View>
+            <RNText style={styles.planPrice}>ACTIF <RNText style={{fontSize: 14}}>(Offert)</RNText></RNText>
+          </View>
+          <Card.Content style={styles.cardContent}>
+            <RNText style={styles.description}>Vous bénéficiez actuellement de votre période d'essai gratuite pour la gestion de flotte.</RNText>
+            <View style={styles.exampleContainer}>
+              <RNText style={styles.exampleTitle}>Période d'essai gratuite :</RNText>
+              <View style={[styles.scanBox, {borderColor: '#FF9800', backgroundColor: '#FFF3E0'}]}>
+                <View style={styles.aiBadge}>
+                  <RNText style={styles.aiBadgeText}>OFFERT</RNText>
+                </View>
+                <RNText style={styles.scanCode}>ACCÈS TOTAL</RNText>
+                <RNText style={styles.scanDesc}>Testez toutes les fonctionnalités Premium de gestion de flotte pendant 14 jours.</RNText>
+                <Divider style={{marginVertical: 5}} />
+                <RNText style={styles.aiTitle}>Inclus :</RNText>
+                <RNText style={styles.aiText}>• Suivi GPS en temps réel</RNText>
+                <RNText style={styles.aiText}>• Maintenance prédictive</RNText>
+                <RNText style={styles.aiText}>• Rapports de consommation</RNText>
+              </View>
+            </View>
+            <Button
+              mode="outlined"
+              onPress={() => {}}
+              style={styles.subscribeBtn}
+              color="#FF9800"
+              disabled={true}
+            >
+              PLAN ACTUEL
+            </Button>
+          </Card.Content>
+        </Card>
+      )}
 
       {plans.map((plan) => (
         <Card key={plan.id} style={[styles.card, user?.subscription_tier === plan.tier && styles.activeCard]}>
           <View style={[styles.planHeader, {backgroundColor: getTierColor(plan.tier)}]}>
             <View style={styles.planTitleRow}>
               <IconButton icon={getTierIcon(plan.tier)} color="white" size={24} />
-              <Title style={styles.planTitle}>{plan.name}</Title>
+              <Text variant="titleLarge" style={styles.planTitle}>{plan.name}</Text>
             </View>
-            <Text style={styles.planPrice}>{formatPrice(plan.price)} FCFA <Text style={{fontSize: 14}}>/ mois</Text></Text>
+            <RNText style={styles.planPrice}>{formatPrice(plan.price)} FCFA <RNText style={{fontSize: 14}}>/ mois</RNText></RNText>
           </View>
 
           <Card.Content style={styles.cardContent}>
-            <Text style={styles.description}>{plan.description}</Text>
+            <RNText style={styles.description}>{plan.description}</RNText>
 
             {renderScanExample(plan.tier)}
 
@@ -195,7 +233,7 @@ export const FleetSubscriptionScreen: React.FC<{navigation: any}> = ({navigation
         <Dialog visible={showQuotation} onDismiss={() => setShowQuotation(false)}>
           <Dialog.Title>Votre Devis : {selectedPlan?.name}</Dialog.Title>
           <Dialog.Content>
-            <Text style={{marginBottom: 10}}>Choisissez la durée (mois) :</Text>
+            <RNText style={{marginBottom: 10}}>Choisissez la durée (mois) :</RNText>
             <TextInput
               label="Nombre de mois"
               value={durationMonths}
@@ -213,13 +251,13 @@ export const FleetSubscriptionScreen: React.FC<{navigation: any}> = ({navigation
             ) : quotation ? (
               <View style={styles.quotationBox}>
                 <View style={styles.infoRow}>
-                  <Text>Prix mensuel</Text>
-                  <Text style={styles.value}>{formatPrice(quotation.price_per_month)} FCFA</Text>
+                  <RNText>Prix mensuel</RNText>
+                  <RNText style={styles.value}>{formatPrice(quotation.price_per_month)} FCFA</RNText>
                 </View>
                 <Divider style={{marginVertical: 10}} />
                 <View style={styles.infoRow}>
-                  <Title>TOTAL</Title>
-                  <Title style={{color: '#1976D2'}}>{formatPrice(quotation.total_price)} FCFA</Title>
+                  <Text variant="titleLarge">TOTAL</Text>
+                  <Text variant="titleLarge" style={{color: '#1976D2'}}>{formatPrice(quotation.total_price)} FCFA</Text>
                 </View>
               </View>
             ) : null}

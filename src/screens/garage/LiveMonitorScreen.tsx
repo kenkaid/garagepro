@@ -6,17 +6,17 @@ import {
   FlatList,
   Dimensions,
   TouchableOpacity,
+  Text as RNText,
 } from 'react-native';
 import {
   Card,
-  Title,
-  Text,
   Surface,
   IconButton,
   ProgressBar,
   Portal,
   Modal,
   Button,
+  Text,
 } from 'react-native-paper';
 import {useStore} from '../../store/useStore';
 import {obdService} from '../../services/obdService';
@@ -128,8 +128,8 @@ export const LiveMonitorScreen: React.FC = () => {
         <Card.Content>
           <View style={styles.cardHeader}>
             <View>
-              <Text style={styles.pidName}>{item.name}</Text>
-              <Text style={styles.pidSource}>{item.pid}</Text>
+              <RNText style={styles.pidName}>{item.name}</RNText>
+              <RNText style={styles.pidSource}>{item.pid}</RNText>
             </View>
             <IconButton
               icon={isFav ? 'star' : 'star-outline'}
@@ -142,12 +142,12 @@ export const LiveMonitorScreen: React.FC = () => {
           <View style={styles.valueRow}>
             <View style={{flex: 1}}>
               <View style={{flexDirection: 'row', alignItems: 'baseline'}}>
-                <Text style={[styles.pidValue, {color: statusColor}]}>
+                <RNText style={[styles.pidValue, {color: statusColor}]}>
                   {typeof item.value === 'number'
                     ? item.value.toFixed(item.pid === '0C' ? 0 : 1)
                     : String(item.value)}
-                </Text>
-                <Text style={styles.pidUnit}>{item.unit}</Text>
+                </RNText>
+                <RNText style={styles.pidUnit}>{item.unit}</RNText>
               </View>
             </View>
             {renderMiniChart(item.pid, statusColor)}
@@ -178,12 +178,12 @@ export const LiveMonitorScreen: React.FC = () => {
       <Surface style={styles.header} elevation={4}>
         <View style={styles.headerRow}>
           <View>
-            <Title style={styles.headerTitle}>Live Monitor</Title>
-            <Text style={styles.headerSubtitle}>
+            <Text variant="titleLarge" style={styles.headerTitle}>Live Monitor</Text>
+            <RNText style={styles.headerSubtitle}>
               {vehicleInfo.connected
                 ? `Véhicule: ${vehicleInfo.licensePlate || vehicleInfo.deviceName || 'Connecté'}`
                 : 'Non connecté'}
-            </Text>
+            </RNText>
           </View>
           <IconButton
             icon={isLive ? 'stop-circle' : 'play-circle'}
@@ -209,13 +209,13 @@ export const LiveMonitorScreen: React.FC = () => {
         </ScrollView>
       ) : (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📡</Text>
-          <Title style={styles.emptyTitle}>Prêt pour le direct</Title>
-          <Text style={styles.emptyText}>
+          <RNText style={styles.emptyIcon}>📡</RNText>
+          <Text variant="titleLarge" style={styles.emptyTitle}>Prêt pour le direct</Text>
+          <RNText style={styles.emptyText}>
             {vehicleInfo.connected
               ? 'Démarrage du flux de données...'
               : 'Connectez l\'adaptateur OBD pour voir les données en temps réel.'}
-          </Text>
+          </RNText>
           {!vehicleInfo.connected && (
             <Button mode="contained" style={{marginTop: 20}} onPress={() => {}}>
               Aller au Scan
@@ -232,14 +232,14 @@ export const LiveMonitorScreen: React.FC = () => {
           contentContainerStyle={styles.modalContent}>
           {selectedPID && (
             <View style={styles.focusContainer}>
-              <Text style={styles.focusName}>{selectedPID.name}</Text>
-              <Text style={[styles.focusValue, {color: getStatusColor(selectedPID)}]}>
+              <RNText style={styles.focusName}>{selectedPID.name}</RNText>
+              <RNText style={[styles.focusValue, {color: getStatusColor(selectedPID)}]}>
                 {typeof selectedPID.value === 'number'
                   ? selectedPID.value.toFixed(1)
                   : String(selectedPID.value)}
-                <Text style={styles.focusUnit}> {selectedPID.unit}</Text>
-              </Text>
-              <Text style={styles.focusRaw}>Donnée brute: {selectedPID.rawData}</Text>
+                <RNText style={styles.focusUnit}> {selectedPID.unit}</RNText>
+              </RNText>
+              <RNText style={styles.focusRaw}>Donnée brute: {selectedPID.rawData}</RNText>
               <Button
                 mode="outlined"
                 onPress={() => setSelectedPID(null)}
@@ -253,9 +253,9 @@ export const LiveMonitorScreen: React.FC = () => {
 
       <View style={styles.footer}>
         <View style={[styles.dot, {backgroundColor: isLive ? '#4CAF50' : '#F44336'}]} />
-        <Text style={styles.footerText}>
+        <RNText style={styles.footerText}>
           {isLive ? 'Flux en direct' : 'Flux arrêté'} • {vehicleInfo.protocol || 'Auto'}
-        </Text>
+        </RNText>
       </View>
     </View>
   );

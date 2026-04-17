@@ -8,6 +8,7 @@ import {FleetPredictionScreen} from '../screens/fleet/FleetPredictionScreen';
 import {FleetSubscriptionScreen} from '../screens/fleet/FleetSubscriptionScreen';
 import {ProfileScreen} from '../screens/shared/ProfileScreen';
 import {UpcomingModulesScreen} from '../screens/shared/UpcomingModulesScreen';
+import {ExpertiseScreen} from '../screens/garage/ExpertiseScreen';
 
 const Stack = createStackNavigator();
 
@@ -52,6 +53,11 @@ export const FleetNavigator = () => (
       name="Profile"
       component={ProfileScreen}
       options={{title: 'Mon Profil'}}
+    />
+    <Stack.Screen
+      name="Expertise"
+      component={ExpertiseScreen}
+      options={{title: 'Expertise Occasion'}}
     />
     <Stack.Screen
       name="UpcomingModules"

@@ -10,8 +10,11 @@ import {
   StatusBar,
   SafeAreaView,
 } from 'react-native';
-import {Text, Title, Button, ActivityIndicator, Surface} from 'react-native-paper';
+import {Text, Button, ActivityIndicator} from 'react-native-paper';
 import {apiService} from '../../services/apiService';
+import {useStore} from '../../store/useStore';
+import {Colors, SharedStyles} from '../../styles/theme';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const {width, height} = Dimensions.get('window');
 
@@ -27,16 +30,23 @@ export const WelcomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const [items, setItems] = useState<WelcomeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
+  const {isAuthenticated} = useStore();
 
   useEffect(() => {
+    if (isAuthenticated) {
+      navigation.reset({
+        index: 0,
+        routes: [{name: 'Main'}],
+      });
+      return;
+    }
     loadWelcomeContent();
-  }, []);
+  }, [isAuthenticated, navigation]);
 
   const loadWelcomeContent = async () => {
     setLoading(true);
     try {
       const data = await apiService.getWelcomeContent();
-      console.log('Données reçues WelcomeContent:', JSON.stringify(data, null, 2));
       setItems(data);
     } catch (error) {
       console.error('Erreur chargement contenu accueil:', error);
@@ -54,8 +64,8 @@ export const WelcomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-        <ActivityIndicator size="large" color="#1976D2" />
+        <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
+        <ActivityIndicator size="large" color={Colors.primary} />
         <Text style={styles.loadingText}>Préparation de l'expérience...</Text>
       </View>
     );
@@ -72,11 +82,16 @@ export const WelcomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+    <SafeAreaView style={SharedStyles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
       <View style={styles.header}>
-        <Title style={styles.brandTitle}>OBD-CI<Text style={styles.brandPro}> Connect</Text></Title>
+        <Text variant="headlineSmall" style={styles.brandTitle}>
+          OBD-CI
+          <Text variant="headlineSmall" style={styles.brandPro}>
+            Connect
+          </Text>
+        </Text>
       </View>
 
       <ScrollView
@@ -88,7 +103,7 @@ export const WelcomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
         style={styles.scrollView}>
         {displayItems.map((item, index) => (
           <View key={item.id || index} style={styles.slide}>
-            <Surface style={styles.card}>
+            <View style={styles.card}>
               <View style={styles.imageContainer}>
                 {item.imageUrl ? (
                   <Image
@@ -98,13 +113,13 @@ export const WelcomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
                   />
                 ) : (
                   <View style={styles.placeholderContainer}>
-                    <Text style={styles.placeholderLogo}>👨‍🔧</Text>
+                    <Icon name="car-connected" size={100} color={Colors.secondary} />
                   </View>
                 )}
               </View>
 
               <View style={styles.textContainer}>
-                <Title style={styles.title}>{item.title}</Title>
+                <Text variant="titleLarge" style={styles.title}>{item.title}</Text>
                 <Text style={styles.description}>{item.description}</Text>
 
                 {item.videoUrl && (
@@ -118,7 +133,7 @@ export const WelcomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
                   </Button>
                 )}
               </View>
-            </Surface>
+            </View>
           </View>
         ))}
       </ScrollView>
@@ -140,10 +155,10 @@ export const WelcomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
           <Button
             mode="contained"
             onPress={() => navigation.navigate('Login')}
-            style={styles.loginButton}
+            style={SharedStyles.primaryButton}
             contentStyle={styles.buttonContent}
             labelStyle={styles.buttonLabel}>
-            Se connecter / S'abonner
+            Commencer
           </Button>
 
           <TouchableOpacity
@@ -161,32 +176,27 @@ export const WelcomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.background,
   },
   header: {
     paddingTop: 20,
     alignItems: 'center',
   },
   brandTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#333',
-    letterSpacing: -0.5,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: Colors.text,
   },
   brandPro: {
-    color: '#1976D2',
+    color: Colors.primary,
   },
   loadingText: {
     marginTop: 20,
-    color: '#757575',
+    color: Colors.textSecondary,
     fontWeight: '500',
   },
   scrollView: {
@@ -195,12 +205,12 @@ const styles = StyleSheet.create({
   slide: {
     width: width,
     flex: 1,
-    padding: 25,
+    padding: 20,
     justifyContent: 'center',
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 10},
@@ -212,7 +222,7 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: '100%',
     height: height * 0.35,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: Colors.divider,
   },
   image: {
     width: '100%',
@@ -224,9 +234,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#E3F2FD',
   },
-  placeholderLogo: {
-    fontSize: 100,
-  },
   textContainer: {
     paddingHorizontal: 20,
     paddingTop: 20,
@@ -236,19 +243,17 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#1976D2',
-    lineHeight: 28,
+    color: Colors.primary,
     marginBottom: 12,
   },
   description: {
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
-    color: '#616161',
+    color: Colors.textSecondary,
     marginBottom: 20,
   },
   videoButton: {
-    marginTop: 5,
     borderRadius: 12,
   },
   videoButtonLabel: {
@@ -271,19 +276,14 @@ const styles = StyleSheet.create({
   },
   activeDot: {
     width: 24,
-    backgroundColor: '#1976D2',
+    backgroundColor: Colors.primary,
   },
   inactiveDot: {
     width: 8,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: Colors.border,
   },
   buttonContainer: {
     width: '100%',
-  },
-  loginButton: {
-    backgroundColor: '#1976D2',
-    borderRadius: 16,
-    elevation: 2,
   },
   buttonContent: {
     height: 56,
@@ -291,7 +291,6 @@ const styles = StyleSheet.create({
   buttonLabel: {
     fontSize: 16,
     fontWeight: 'bold',
-    textTransform: 'none',
   },
   registerLinkContainer: {
     marginTop: 20,
@@ -299,11 +298,11 @@ const styles = StyleSheet.create({
   },
   registerText: {
     textAlign: 'center',
-    color: '#757575',
+    color: Colors.textSecondary,
     fontSize: 14,
   },
   registerHighlight: {
-    color: '#1976D2',
+    color: Colors.primary,
     fontWeight: 'bold',
   },
 });

@@ -1,31 +1,21 @@
 import React, {useEffect} from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Text,
-} from 'react-native';
-import {Card, Button, Avatar} from 'react-native-paper';
-import {useStore} from '../../store/useStore';
-import {apiService} from '../../services/apiService';
+import {View, ScrollView, TouchableOpacity, Text, Alert} from 'react-native';
+import {Avatar} from 'react-native-paper';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {useStore} from '../../store/useStore.ts';
+import {apiService} from '../../services/apiService.ts';
+import {FleetStyles} from '../../styles/fleetTheme.ts';
 
 export const FleetHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
-  const {
-    user,
-    vehicleInfo,
-    setCurrentScreen,
-    setUser,
-    setConnectedDevice,
-    setVehicleInfo,
-  } = useStore();
+  const {user, vehicleInfo, setCurrentScreen, setUser, setConnectedDevice} =
+    useStore();
 
   useEffect(() => {
     setCurrentScreen('home');
 
     const loadProfile = async () => {
       if (!user || !user.first_name || user.user_type !== 'FLEET_OWNER') {
-        const data = await apiService.getCurrentMechanic();
+        const data = await apiService.getCurrentUser();
         if (data) {
           setUser(data);
         }
@@ -37,171 +27,173 @@ export const FleetHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
   const handleDisconnect = async () => {
     setConnectedDevice(null);
-    setVehicleInfo({
-      connected: false,
-      protocol: 'Non détecté',
-      deviceName: '',
-      deviceId: '',
-      vin: 'Non scanné',
-    });
   };
 
   const renderConnectionStatus = () => (
-    <Card style={styles.statusCard}>
-      <Card.Content>
-        <View style={styles.statusRow}>
-          <Avatar.Text
-            size={40}
-            label={vehicleInfo.connected ? '✓' : '✕'}
-            style={{
-              backgroundColor: vehicleInfo.connected ? '#4CAF50' : '#F44336',
-            }}
-          />
-          <View style={styles.statusText}>
-            <Text style={styles.statusTitle}>
-              {vehicleInfo.connected ? 'Connecté au véhicule' : 'Mode Surveillance'}
-            </Text>
-            <Text style={styles.statusSubtitle}>
-              {vehicleInfo.connected
-                ? `${vehicleInfo.licensePlate || ''} ${vehicleInfo.brand || ''} ${vehicleInfo.model || ''}`.trim()
-                : 'Suivez vos véhicules en temps réel'}
-            </Text>
-          </View>
+    <View style={FleetStyles.statusCard}>
+      <View style={FleetStyles.statusRow}>
+        <Avatar.Icon
+          size={50}
+          icon={vehicleInfo.connected ? 'check-circle' : 'monitor-dashboard'}
+          color="#fff"
+          style={
+            vehicleInfo.connected
+              ? FleetStyles.statusIconAvatarConnected
+              : FleetStyles.statusIconAvatar
+          }
+        />
+        <View style={FleetStyles.statusInfo}>
+          <Text style={FleetStyles.statusTitle}>
+            {vehicleInfo.connected
+              ? 'Connecté au véhicule'
+              : 'Mode Surveillance'}
+          </Text>
+          <Text style={FleetStyles.statusSubtitle}>
+            {vehicleInfo.connected
+              ? `${vehicleInfo.licensePlate || ''} ${vehicleInfo.brand || ''} ${
+                  vehicleInfo.model || ''
+                }`.trim()
+              : 'Suivez vos véhicules en temps réel'}
+          </Text>
         </View>
-      </Card.Content>
-      <Card.Actions>
-        {vehicleInfo.connected ? (
-          <Button
-            mode="outlined"
-            onPress={handleDisconnect}
-            color="#F44336"
-            icon="bluetooth-off">
-            Déconnecter
-          </Button>
-        ) : (
-          <Button mode="contained" onPress={() => navigation.navigate('FleetDashboard')}>
-            Voir ma flotte
-          </Button>
-        )}
-      </Card.Actions>
-    </Card>
+      </View>
+
+      {vehicleInfo.connected ? (
+        <TouchableOpacity
+          style={FleetStyles.disconnectButton}
+          onPress={handleDisconnect}>
+          <Icon name="bluetooth-off" size={20} color="#F44336" />
+          <Text style={FleetStyles.disconnectButtonText}>Déconnecter</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={FleetStyles.actionButton}
+          onPress={() => navigation.navigate('FleetDashboard')}>
+          <Icon name="view-dashboard-outline" size={20} color="#fff" />
+          <Text style={FleetStyles.buttonText}>Voir ma flotte</Text>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 
   const renderQuickActions = () => (
-    <View style={styles.actionsGrid}>
+    <View style={FleetStyles.grid}>
       <TouchableOpacity
-        style={styles.actionCard}
+        style={FleetStyles.menuItem}
         onPress={() => navigation.navigate('FleetDashboard')}>
-        <Text style={styles.actionIcon}>📊</Text>
-        <Text style={styles.actionText}>Ma Flotte</Text>
+        <View style={FleetStyles.menuIconContainer}>
+          <Icon name="truck-delivery-outline" size={32} color="#004BA0" />
+        </View>
+        <Text style={FleetStyles.menuLabel}>Ma Flotte</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.actionCard}
+        style={FleetStyles.menuItem}
         onPress={() => navigation.navigate('FleetHistory')}>
-        <Text style={styles.actionIcon}>📋</Text>
-        <Text style={styles.actionText}>Journal de bord</Text>
+        <View style={FleetStyles.menuIconContainer}>
+          <Icon name="clipboard-text-clock-outline" size={32} color="#004BA0" />
+        </View>
+        <Text style={FleetStyles.menuLabel}>Journal de bord</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.actionCard, styles.predictionActionCard]}
+        style={FleetStyles.menuItem}
         onPress={() => navigation.navigate('FleetPrediction')}>
-        <Text style={styles.actionIcon}>🔮</Text>
-        <Text style={styles.actionText}>Prédictions Pannes</Text>
+        <View style={FleetStyles.menuIconContainerPrediction}>
+          <Icon name="crystal-ball" size={32} color="#3F51B5" />
+        </View>
+        <Text style={FleetStyles.menuLabel}>Prédictions Pannes</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={styles.actionCard}
-        onPress={() => navigation.navigate('UpcomingModules')}>
-        <Text style={styles.actionIcon}>🚀</Text>
-        <Text style={styles.actionText}>Modules IA</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.actionCard}
-        onPress={() => navigation.navigate('Profile')}>
-        <Text style={styles.actionIcon}>👤</Text>
-        <Text style={styles.actionText}>Mon Compte</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.actionCard, styles.expertiseActionCard]}
+        style={FleetStyles.menuItem}
         onPress={() => navigation.navigate('Expertise')}>
-        <Text style={styles.actionIcon}>🛡️</Text>
-        <Text style={styles.actionText}>Expertise Occasion</Text>
+        <View style={FleetStyles.menuIconContainerExpertise}>
+          <Icon name="shield-check-outline" size={32} color="#4CAF50" />
+        </View>
+        <Text style={FleetStyles.menuLabel}>Expertise Occasion</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.actionCard, styles.subscriptionActionCard]}
-        onPress={() => navigation.navigate('FleetSubscriptions')}>
-        <Text style={styles.actionIcon}>⭐</Text>
-        <Text style={styles.actionText}>Offres Flotte</Text>
+        style={FleetStyles.menuItem}
+        onPress={() => {
+          if (user?.is_trial) {
+            Alert.alert(
+              'Période d\'essai active',
+              'Vous profitez actuellement de toutes les fonctionnalités Premium gratuitement. Souhaitez-vous voir nos autres offres pour la suite ?',
+              [
+                {text: 'Plus tard', style: 'cancel'},
+                {text: 'Voir les offres', onPress: () => navigation.navigate('FleetSubscriptions')},
+              ],
+            );
+          } else {
+            navigation.navigate('FleetSubscriptions');
+          }
+        }}>
+        <View style={FleetStyles.menuIconContainerSubscriptions}>
+          <Icon name="star-outline" size={32} color="#FBC02D" />
+        </View>
+        <Text style={FleetStyles.menuLabel}>Offres Flotte</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={FleetStyles.menuItem}
+        onPress={() => navigation.navigate('UpcomingModules')}>
+        <View style={FleetStyles.menuIconContainer}>
+          <Icon name="robot-outline" size={32} color="#004BA0" />
+        </View>
+        <Text style={FleetStyles.menuLabel}>Modules IA</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={FleetStyles.menuItem}
+        onPress={() => navigation.navigate('Profile')}>
+        <View style={FleetStyles.menuIconContainer}>
+          <Icon name="account-cog-outline" size={32} color="#004BA0" />
+        </View>
+        <Text style={FleetStyles.menuLabel}>Mon Compte</Text>
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.welcome}>
-          Bonjour, {user?.first_name || 'Propriétaire'}
-        </Text>
-        <Text style={styles.subtitle}>
-          {user?.shop_name || 'Ma Flotte'}
-        </Text>
+    <ScrollView style={FleetStyles.container}>
+      <View style={FleetStyles.header}>
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+          <View style={{flex: 1}}>
+            <Text style={FleetStyles.welcomeText}>
+              Bonjour, {user?.first_name || 'Propriétaire'}
+            </Text>
+            <Text style={FleetStyles.shopName}>
+              {user?.shop_name || 'Ma Flotte'}
+            </Text>
+          </View>
+          {user?.is_trial && (
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#FFF3E0',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 20,
+                flexDirection: 'row',
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: '#FF9800'
+              }}
+              onPress={() => navigation.navigate('FleetSubscriptions')}
+            >
+              <Icon name="clock-outline" size={16} color="#E65100" style={{marginRight: 4}} />
+              <Text style={{color: '#E65100', fontWeight: 'bold', fontSize: 12}}>
+                ESSAI : {user?.trial_days_remaining || 0}j restants
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {renderConnectionStatus()}
       {renderQuickActions()}
+      <View style={FleetStyles.footerSpacer} />
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#f5f5f5'},
-  header: {
-    padding: 20,
-    backgroundColor: '#004BA0',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  welcome: {color: 'white', fontSize: 24, fontWeight: 'bold'},
-  subtitle: {color: 'rgba(255,255,255,0.9)', marginTop: 4, fontSize: 16, fontWeight: '500'},
-  statusCard: {margin: 16, elevation: 2},
-  statusRow: {flexDirection: 'row', alignItems: 'center'},
-  statusText: {marginLeft: 12, flex: 1},
-  statusTitle: {fontSize: 16, fontWeight: 'bold'},
-  statusSubtitle: {color: '#757575', marginTop: 2},
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 8,
-    justifyContent: 'space-between',
-  },
-  actionCard: {
-    width: '48%',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    alignItems: 'center',
-    elevation: 2,
-  },
-  actionIcon: {fontSize: 32},
-  actionText: {marginTop: 8, textAlign: 'center', fontSize: 12},
-  subscriptionActionCard: {
-    backgroundColor: '#FFF9C4',
-    borderColor: '#FFC107',
-    borderWidth: 1,
-  },
-  expertiseActionCard: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#4CAF50',
-    borderWidth: 1,
-  },
-  predictionActionCard: {
-    backgroundColor: '#E8EAF6',
-    borderColor: '#3F51B5',
-    borderWidth: 1,
-  },
-});

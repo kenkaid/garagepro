@@ -6,10 +6,10 @@ import {
   FlatList,
   TextInput,
   TouchableOpacity,
-  Text,
   ActivityIndicator,
+  Text as RNText,
 } from 'react-native';
-import {Card, Title, Paragraph, List, Divider} from 'react-native-paper';
+import {Card, List, Divider, Text} from 'react-native-paper';
 import {apiService} from '../../services/apiService';
 
 export const DTCBaseScreen: React.FC = () => {
@@ -53,31 +53,31 @@ export const DTCBaseScreen: React.FC = () => {
     <Card style={styles.card}>
       <Card.Content>
         <View style={styles.codeRow}>
-          <Title style={styles.codeText}>{item.code}</Title>
+          <Text variant="titleLarge" style={styles.codeText}>{item.code}</Text>
           <View
             style={[
               styles.severityBadge,
               {backgroundColor: getSeverityColor(item.severity || 'low')},
             ]}>
-            <Text style={styles.severityText}>
+            <RNText style={styles.severityText}>
               {item.brand ? item.brand.toUpperCase() : 'GÉNÉRIQUE'}
-            </Text>
+            </RNText>
           </View>
         </View>
-        <Paragraph style={styles.description}>{item.description}</Paragraph>
+        <RNText style={styles.description}>{item.description}</RNText>
         <Divider style={styles.divider} />
         <View style={styles.priceRow}>
           <View style={styles.priceItem}>
-            <Text style={styles.priceLabel}>Pièce (Local)</Text>
-            <Text style={styles.priceValue}>
+            <RNText style={styles.priceLabel}>Pièce (Local)</RNText>
+            <RNText style={styles.priceValue}>
               {item.est_part_price_local.toLocaleString()} FCFA
-            </Text>
+            </RNText>
           </View>
           <View style={styles.priceItem}>
-            <Text style={styles.priceLabel}>Main d'œuvre</Text>
-            <Text style={styles.priceValue}>
+            <RNText style={styles.priceLabel}>Main d'œuvre</RNText>
+            <RNText style={styles.priceValue}>
               {item.est_labor_cost.toLocaleString()} FCFA
-            </Text>
+            </RNText>
           </View>
         </View>
       </Card.Content>
@@ -102,7 +102,7 @@ export const DTCBaseScreen: React.FC = () => {
           onSubmitEditing={handleSearch}
         />
         <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-          <Text style={styles.searchButtonText}>Filtrer</Text>
+          <RNText style={styles.searchButtonText}>Filtrer</RNText>
         </TouchableOpacity>
       </View>
 
@@ -115,7 +115,7 @@ export const DTCBaseScreen: React.FC = () => {
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>Aucun code trouvé dans la base.</Text>
+            <RNText style={styles.emptyText}>Aucun code trouvé dans la base.</RNText>
           }
         />
       )}

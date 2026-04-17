@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const SERVER_IP = '192.168.1.5';
 const BASE_URL = `http://${SERVER_IP}:8000/api`;
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: BASE_URL,
   timeout: 10000,
   headers: {
@@ -17,9 +17,12 @@ const api = axios.create({
   },
 });
 
+export const apiInstance = api;
+
 // Ajouter le token à chaque requête si présent
 api.interceptors.request.use(async config => {
-  const token = await AsyncStorage.getItem('auth_token');
+  // On utilise apiService.getToken() pour avoir le token le plus à jour (mémoire ou storage)
+  const token = await apiService.getToken();
   if (token) {
     config.headers.Authorization = `Token ${token}`;
   }
@@ -53,8 +56,19 @@ class APIService {
     this.token = await AsyncStorage.getItem('auth_token');
   }
 
+  async getToken() {
+    if (this.token === null) {
+      await this.loadToken();
+    }
+    return this.token;
+  }
+
   // Auth
-  async login(username: string, password: string): Promise<any | null> {
+  async login(
+    username: string,
+    password: string,
+    rememberMe: boolean = true,
+  ): Promise<any | null> {
     try {
       const response = await axios.post(
         `${BASE_URL.replace('/api', '')}/api-token-auth/`,
@@ -65,7 +79,11 @@ class APIService {
       );
 
       const {token} = response.data;
-      await AsyncStorage.setItem('auth_token', token);
+      if (rememberMe) {
+        await AsyncStorage.setItem('auth_token', token);
+      } else {
+        await AsyncStorage.removeItem('auth_token');
+      }
       this.token = token;
 
       // Après login, on récupère le profil complet (utilisant le nouveau format MechanicSerializer)
@@ -212,7 +230,7 @@ class APIService {
   }
 
   async getCurrentUser(): Promise<any | null> {
-    const token = await AsyncStorage.getItem('auth_token');
+    const token = await this.getToken();
     if (!token) {
       return null;
     }
@@ -232,7 +250,7 @@ class APIService {
   }
 
   async updateUserProfile(data: any): Promise<any | null> {
-    const token = await AsyncStorage.getItem('auth_token');
+    const token = await this.getToken();
     if (!token) {
       return null;
     }
@@ -248,7 +266,7 @@ class APIService {
   async changePassword(
     passwordData: any,
   ): Promise<{success: boolean; message?: string; errors?: any}> {
-    const token = await AsyncStorage.getItem('auth_token');
+    const token = await this.getToken();
     if (!token) {
       return {success: false, message: 'Non authentifié'};
     }
@@ -269,7 +287,7 @@ class APIService {
   }
 
   async getSubscriptionPlans(): Promise<any[]> {
-    const token = await AsyncStorage.getItem('auth_token');
+    const token = await this.getToken();
     if (!token) {
       return [];
     }
@@ -286,7 +304,7 @@ class APIService {
     planId: number,
     months: number,
   ): Promise<any | null> {
-    const token = await AsyncStorage.getItem('auth_token');
+    const token = await this.getToken();
     if (!token) {
       return null;
     }

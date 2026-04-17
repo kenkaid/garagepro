@@ -6,6 +6,13 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "noImplicitAny": false
-  }
+    "noImplicitAny": false,
+    "baseUrl": ".",
+    "paths": {
+      "*": ["src/*"]
+    },
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "types": ["react", "react-native", "node"]
+  },
+  "include": ["src/**/*", "App.tsx"]
 }

@@ -162,6 +162,28 @@ export interface User {
   /** Niveau d'abonnement */
   subscription_tier?: string;
 
+  /** Indique si l'utilisateur est en période d'essai */
+  is_trial?: boolean;
+
+  /** Nombre de jours d'essai restants */
+  trial_days_remaining?: number;
+
+  /** Détails de l'abonnement actif */
+  active_subscription?: {
+    id: number;
+    plan: {
+      id: number;
+      name: string;
+      tier: string;
+      price: string;
+      duration_days: number;
+      description: string;
+    };
+    start_date: string;
+    end_date: string;
+    is_active: boolean;
+  };
+
   /** Type d'utilisateur (Nouveau) */
   user_type?: 'MECHANIC' | 'FLEET_OWNER' | 'INDIVIDUAL';
 

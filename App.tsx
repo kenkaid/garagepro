@@ -23,17 +23,28 @@ const theme = {
 };
 
 const AppInitializer: React.FC<{children: React.ReactNode}> = ({children}) => {
-  const {setMechanic} = useStore();
+  const {setUser} = useStore();
+  const [isInitializing, setIsInitializing] = React.useState(true);
 
   useEffect(() => {
-    const initMock = async () => {
-      const mechanic = await apiService.getCurrentMechanic();
-      if (mechanic) {
-        setMechanic(mechanic);
+    const initAuth = async () => {
+      try {
+        const user = await apiService.getCurrentUser();
+        if (user) {
+          setUser(user);
+        }
+      } catch (e) {
+        console.error('Erreur lors de l\'initialisation de l\'auth:', e);
+      } finally {
+        setIsInitializing(false);
       }
     };
-    initMock();
-  }, [setMechanic]);
+    initAuth();
+  }, [setUser]);
+
+  if (isInitializing) {
+    return null; // Ou un écran de splash si disponible
+  }
 
   return <>{children}</>;
 };

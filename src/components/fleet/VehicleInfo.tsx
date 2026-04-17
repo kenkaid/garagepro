@@ -2,8 +2,8 @@
 import React from 'react';
 import {View, StyleSheet, Text} from 'react-native'; // Text natif
 import {Card, Chip, IconButton} from 'react-native-paper'; // Sans Text
-import {useStore} from '../store/useStore';
-import {obdService} from '../services/obdService';
+import {useStore} from '../../store/useStore';
+import {obdService} from '../../services/obdService';
 
 interface VehicleInfoProps {
   onDisconnect?: () => void;

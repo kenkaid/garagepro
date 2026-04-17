@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
-import {View, StyleSheet, ScrollView, RefreshControl} from 'react-native';
-import {Text, Card, Title, Paragraph, List, Avatar, IconButton, Badge} from 'react-native-paper';
+import {View, StyleSheet, ScrollView, RefreshControl, Text as RNText} from 'react-native';
+import {Card, List, Avatar, IconButton, Badge, Text} from 'react-native-paper';
 import {apiService} from '../../services/apiService';
 
 export const FleetDashboardScreen: React.FC<{navigation: any}> = ({navigation}) => {
@@ -34,7 +34,7 @@ export const FleetDashboardScreen: React.FC<{navigation: any}> = ({navigation}) 
   if (loading && !refreshing) {
     return (
       <View style={styles.center}>
-        <Text>Chargement du tableau de bord...</Text>
+        <RNText>Chargement du tableau de bord...</RNText>
       </View>
     );
   }
@@ -47,19 +47,19 @@ export const FleetDashboardScreen: React.FC<{navigation: any}> = ({navigation}) 
       <View style={styles.summaryRow}>
         <Card style={styles.summaryCard}>
           <Card.Content>
-            <Title style={styles.summaryValue}>{data?.total_vehicles || 0}</Title>
-            <Paragraph>Véhicules</Paragraph>
+            <Text variant="headlineMedium" style={styles.summaryValue}>{data?.total_vehicles || 0}</Text>
+            <RNText>Véhicules</RNText>
           </Card.Content>
         </Card>
         <Card style={[styles.summaryCard, data?.active_alerts_count > 0 && styles.warningCard]}>
           <Card.Content>
-            <Title style={styles.summaryValue}>{data?.active_alerts_count || 0}</Title>
-            <Paragraph>Alertes IA</Paragraph>
+            <Text variant="headlineMedium" style={styles.summaryValue}>{data?.active_alerts_count || 0}</Text>
+            <RNText>Alertes IA</RNText>
           </Card.Content>
         </Card>
       </View>
 
-      <Title style={styles.sectionTitle}>État de la Flotte</Title>
+      <Text variant="titleMedium" style={styles.sectionTitle}>État de la Flotte</Text>
       {data?.fleet_status?.map((item: any, index: number) => (
         <Card key={index} style={styles.vehicleCard} onPress={() => navigation.navigate('FleetLiveMonitor', {vehicleId: item.vehicle.id})}>
           <Card.Title
@@ -73,20 +73,20 @@ export const FleetDashboardScreen: React.FC<{navigation: any}> = ({navigation}) 
           <Card.Content>
             <View style={styles.statsRow}>
               <View style={styles.stat}>
-                <Text style={styles.statLabel}>Carburant</Text>
-                <Text style={styles.statValue}>{item.fuel_level ? `${item.fuel_level}%` : 'N/A'}</Text>
+                <RNText style={styles.statLabel}>Carburant</RNText>
+                <RNText style={styles.statValue}>{item.fuel_level ? `${item.fuel_level}%` : 'N/A'}</RNText>
               </View>
               <View style={styles.stat}>
-                <Text style={styles.statLabel}>Batterie</Text>
-                <Text style={[styles.statValue, item.voltage < 12 && styles.dangerText]}>
+                <RNText style={styles.statLabel}>Batterie</RNText>
+                <RNText style={[styles.statValue, item.voltage < 12 && styles.dangerText]}>
                     {item.voltage ? `${item.voltage}V` : 'N/A'}
-                </Text>
+                </RNText>
               </View>
               <View style={styles.stat}>
-                <Text style={styles.statLabel}>Dernier Ping</Text>
-                <Text style={styles.statValue}>
+                <RNText style={styles.statLabel}>Dernier Ping</RNText>
+                <RNText style={styles.statValue}>
                     {item.last_ping ? new Date(item.last_ping).toLocaleTimeString() : 'Inactif'}
-                </Text>
+                </RNText>
               </View>
             </View>
           </Card.Content>
@@ -95,7 +95,7 @@ export const FleetDashboardScreen: React.FC<{navigation: any}> = ({navigation}) 
 
       {(!data?.fleet_status || data.fleet_status.length === 0) && (
           <View style={styles.empty}>
-              <Text>Aucun véhicule équipé de boîtier IoT pour le moment.</Text>
+              <RNText>Aucun véhicule équipé de boîtier IoT pour le moment.</RNText>
           </View>
       )}
     </ScrollView>
