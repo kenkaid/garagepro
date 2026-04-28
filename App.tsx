@@ -5,6 +5,7 @@ import {PaperProvider, MD3LightTheme} from 'react-native-paper';
 import {AppNavigator} from './src/navigation/AppNavigator';
 import {useStore} from './src/store/useStore';
 import {apiService} from './src/services/apiService';
+import {obdService} from './src/services/obdService';
 
 // Thème complet obligatoire pour Paper
 const theme = {
@@ -23,15 +24,21 @@ const theme = {
 };
 
 const AppInitializer: React.FC<{children: React.ReactNode}> = ({children}) => {
-  const {setUser} = useStore();
+  const {setUser, setIsTestMode} = useStore();
   const [isInitializing, setIsInitializing] = React.useState(true);
-
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const user = await apiService.getCurrentUser();
+        const [user, config] = await Promise.all([
+          apiService.getCurrentUser(),
+          apiService.getAppConfig(),
+        ]);
         if (user) {
           setUser(user);
+        }
+        if (config) {
+          setIsTestMode(config.is_test_mode);
+          obdService.setMockMode(config.is_test_mode);
         }
       } catch (e) {
         console.error('Erreur lors de l\'initialisation de l\'auth:', e);
@@ -40,7 +47,7 @@ const AppInitializer: React.FC<{children: React.ReactNode}> = ({children}) => {
       }
     };
     initAuth();
-  }, [setUser]);
+  }, [setUser, setIsTestMode]);
 
   if (isInitializing) {
     return null; // Ou un écran de splash si disponible

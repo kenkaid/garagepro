@@ -1,13 +1,7 @@
 // src/services/apiService.ts
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// CONFIGURATION DE L'ADRESSE DU BACKEND
-// Utiliser 'http://10.0.2.2:8000/api' pour l'émulateur Android
-// Utiliser l'IP locale (ex: http://192.168.1.15:8000/api) pour un vrai téléphone
-// LORS DU PASSAGE EN PROD : Modifier l'IP ci-dessous par l'adresse du VPS
-const SERVER_IP = '192.168.1.5';
-const BASE_URL = `http://${SERVER_IP}:8000/api`;
+import {BASE_URL} from '../config/serverConfig';
 
 export const api = axios.create({
   baseURL: BASE_URL,
@@ -60,7 +54,8 @@ class APIService {
     if (this.token === null) {
       await this.loadToken();
     }
-    return this.token;
+    // Si le token est une chaîne vide (après logout), on considère qu'il n'y a pas de token
+    return this.token || null;
   }
 
   // Auth
@@ -124,13 +119,18 @@ class APIService {
 
     try {
       // Formater les données pour Django
+      // Normalisation du véhicule : supporte les deux formats (vehicle imbriqué ou vehicleInfo)
+      const vehicleInfo = scanData.vehicleInfo || {};
       let payload: any = {
         vehicle: scanData.vehicle || {
-          license_plate: scanData.vehicleInfo?.licensePlate || 'INCONNU',
-          brand: scanData.vehicleInfo?.brand || 'Inconnue',
-          model: scanData.vehicleInfo?.model || 'Inconnu',
-          year: scanData.vehicleInfo?.year || 2020,
-          vin: scanData.vehicleInfo?.vin || '',
+          license_plate:
+            (vehicleInfo as any).licensePlate ||
+            (vehicleInfo as any).license_plate ||
+            'INCONNU',
+          brand: (vehicleInfo as any).brand || 'Inconnue',
+          model: (vehicleInfo as any).model || 'Inconnu',
+          year: (vehicleInfo as any).year || 2020,
+          vin: (vehicleInfo as any).vin || '',
         },
         dtc_codes:
           scanData.dtc_codes ||
@@ -144,20 +144,40 @@ class APIService {
         actual_parts_cost: scanData.actual_parts_cost || 0,
         is_completed: scanData.is_completed || false,
         scan_type: scanData.scan_type || 'DIAGNOSTIC',
-        mileage_ecu: scanData.mileage_ecu,
-        mileage_abs: scanData.mileage_abs,
-        mileage_dashboard: scanData.mileage_dashboard,
-        safety_check: scanData.safety_check,
+        mileage_data: {
+          mileage_ecu: scanData.mileage_ecu,
+          mileage_abs: scanData.mileage_abs,
+          mileage_dashboard: scanData.mileage_dashboard,
+        },
+        safety_data: scanData.safety_check,
       };
 
-      // Si on a un ID (scan existant en historique), on l'envoie pour mise à jour
-      if (scanData.id) {
-        payload.id = scanData.id;
+      // Si on a un ID numérique (scan existant en historique), on l'envoie pour mise à jour
+      // On ignore les IDs temporaires locaux (générés par Date.now() sous forme de string)
+      const scanId = scanData.id;
+      if (scanId && typeof scanId === 'number') {
+        payload.id = scanId;
+      } else if (
+        scanId &&
+        typeof scanId === 'string' &&
+        /^\d{1,10}$/.test(scanId)
+      ) {
+        // ID numérique court = ID base de données réel (pas un timestamp)
+        payload.id = parseInt(scanId, 10);
       }
 
       const response = await api.post('/scans/', payload);
       return response.data;
     } catch (error: any) {
+      if (error?.response) {
+        console.error(
+          '[saveScan] Erreur serveur:',
+          error.response.status,
+          JSON.stringify(error.response.data),
+        );
+      } else {
+        console.error('[saveScan] Erreur réseau:', error?.message);
+      }
       return null;
     }
   }
@@ -272,10 +292,7 @@ class APIService {
     }
 
     try {
-      const response = await api.post(
-        '/users/change_password/',
-        passwordData,
-      );
+      const response = await api.post('/users/change_password/', passwordData);
       return {success: true, message: response.data.message};
     } catch (error: any) {
       return {
@@ -341,9 +358,50 @@ class APIService {
     }
   }
 
+  async initWavePayment(
+    planId: number,
+    durationMonths: number = 1,
+  ): Promise<any | null> {
+    const token = await this.getToken();
+    if (!token) {
+      return null;
+    }
+
+    try {
+      console.log('[DEBUG_LOG] Requesting /payments/wave/init/ with:', {
+        plan_id: planId,
+        duration_months: durationMonths,
+      });
+      const response = await api.post('/payments/wave/init/', {
+        plan_id: planId,
+        duration_months: durationMonths,
+      });
+      console.log('[DEBUG_LOG] Wave init response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        console.error(
+          '[DEBUG_LOG] Wave init error response:',
+          error.response.status,
+          error.response.data,
+        );
+      } else if (error.request) {
+        console.error(
+          '[DEBUG_LOG] Wave init no response received:',
+          error.request,
+        );
+      } else {
+        console.error('[DEBUG_LOG] Wave init error setup:', error.message);
+      }
+      return null;
+    }
+  }
+
   async logout(): Promise<void> {
+    // On vide le token en mémoire et en storage immédiatement
+    // pour que les polling asynchrones voient qu'il n'y a plus de session.
+    this.token = '';
     await AsyncStorage.removeItem('auth_token');
-    this.token = null;
   }
 
   // Modèles de véhicules
@@ -459,12 +517,250 @@ class APIService {
     }
   }
 
+  async getAppConfig(): Promise<{is_test_mode: boolean} | null> {
+    try {
+      const response = await api.get('/app-config/');
+      return response.data;
+    } catch (error) {
+      return null;
+    }
+  }
+
   async getPredictiveAlerts(): Promise<any[]> {
     try {
       const response = await api.get('/alerts/');
       return response.data;
     } catch (error) {
       console.error('Error fetching predictive alerts:', error);
+      return [];
+    }
+  }
+  async getNotifications(): Promise<any[]> {
+    try {
+      const token = await this.getToken();
+      if (!token) return [];
+
+      const response = await api.get('/notifications/');
+      console.log('[getNotifications] count:', response.data?.length);
+      return response.data;
+    } catch (error: any) {
+      if (error?.response?.status === 401) return []; // Évite les logs d'erreurs lors du logout
+      console.error('[getNotifications] ERREUR:', error?.response?.status, error?.message);
+      return [];
+    }
+  }
+
+  async markNotificationsRead(): Promise<boolean> {
+    try {
+      const token = await this.getToken();
+      if (!token) return false;
+
+      await api.post('/notifications/mark_all_read/');
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async markNotificationRead(id: number): Promise<boolean> {
+    try {
+      const token = await this.getToken();
+      if (!token) return false;
+
+      await api.post(`/notifications/${id}/mark_read/`);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async getUnreadNotificationsCount(type?: string): Promise<number> {
+    try {
+      const token = await this.getToken();
+      if (!token) return 0;
+
+      const url = type ? `/notifications/unread_count/?type=${type}` : '/notifications/unread_count/';
+      const response = await api.get(url);
+      console.log('[unread_count] response:', response.data);
+      return response.data.unread_count || 0;
+    } catch (error: any) {
+      if (error?.response?.status === 401) return 0; // Évite les logs d'erreurs lors du logout
+      console.error('[unread_count] ERREUR:', error?.response?.status, error?.message);
+      return 0;
+    }
+  }
+
+  // Messagerie / Chat
+  async getMessages(appointmentId?: number, otherUserId?: number): Promise<any[]> {
+    try {
+      let url = '/messages/';
+      const params = [];
+      if (appointmentId) params.push(`appointment=${appointmentId}`);
+      if (otherUserId) params.push(`other_user=${otherUserId}`);
+
+      if (params.length > 0) {
+        url += '?' + params.join('&');
+      }
+
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async getConversations(): Promise<any[]> {
+    try {
+      const response = await api.get('/messages/conversations/');
+      return response.data;
+    } catch (error) {
+      console.error('[getConversations] Erreur:', error);
+      return [];
+    }
+  }
+
+  async markChatAsRead(params: {appointment_id?: number; other_user_id?: number}): Promise<boolean> {
+    try {
+      await api.post('/messages/mark_as_read/', params);
+      return true;
+    } catch (error) {
+      console.error('[markChatAsRead] Erreur:', error);
+      return false;
+    }
+  }
+
+  async analyzeDTCs(dtcCodes: string[], vehicleInfo?: {brand?: string; model?: string; year?: number}): Promise<any> {
+    try {
+      const body: any = {dtc_codes: dtcCodes};
+      if (vehicleInfo) body.vehicle_info = vehicleInfo;
+      const response = await api.post('/scans/analyze_dtcs/', body);
+      return response.data;
+    } catch (error: any) {
+      console.error('[analyzeDTCs] Erreur:', error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  async analyzeLive(pids: {pid: string; value: number; unit?: string}[], vehicleId?: number): Promise<any> {
+    try {
+      const body: any = {pids};
+      if (vehicleId) body.vehicle_id = vehicleId;
+      const response = await api.post('/scans/analyze_live/', body);
+      return response.data;
+    } catch (error: any) {
+      console.error('[analyzeLive] Erreur:', error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  async searchClients(query: string): Promise<any[]> {
+    try {
+      const response = await api.get(`/clients/search/?q=${encodeURIComponent(query)}`);
+      return response.data;
+    } catch (error) {
+      console.error('[searchClients] Erreur:', error);
+      return [];
+    }
+  }
+
+  async updateScan(scanId: number, data: any): Promise<any> {
+    try {
+      const response = await api.patch(`/scans/${scanId}/`, data);
+      return response.data;
+    } catch (error: any) {
+      console.error('[updateScan] Erreur:', error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  async sendMessage(receiverId: number, message: string, appointmentId?: number): Promise<any> {
+    try {
+      if (!receiverId) {
+        console.error('[sendMessage] receiverId est undefined ou null !');
+        return null;
+      }
+      const body: any = {
+        receiver: receiverId,
+        message: message,
+      };
+      if (appointmentId) {
+        body.appointment = appointmentId;
+      }
+      const response = await api.post('/messages/', body);
+      return response.data;
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const data = error?.response?.data;
+      console.error('[sendMessage] Erreur API:', status, JSON.stringify(data));
+      // Retourner l'erreur pour que le ChatScreen puisse l'afficher
+      return {__error: true, status, data};
+    }
+  }
+
+  // Appointments
+  async getAppointments(): Promise<any[]> {
+    try {
+      const response = await api.get('/appointments/');
+      return response.data;
+    } catch (error) {
+      console.error('[getAppointments] Erreur:', error);
+      return [];
+    }
+  }
+
+  async updateAppointmentStatus(appointmentId: number, status: string): Promise<any> {
+    try {
+      const response = await api.patch(`/appointments/${appointmentId}/change_status/`, {status});
+      return response.data;
+    } catch (error) {
+      console.error('[updateAppointmentStatus] Erreur:', error);
+      return null;
+    }
+  }
+
+  // Experts / Géolocalisation
+  async registerAsExpert(latitude: number, longitude: number, specialties: string, isExpert: boolean = true): Promise<any> {
+    try {
+      const response = await api.post('/users/register_expert/', {
+        latitude,
+        longitude,
+        specialties,
+        is_expert: isExpert,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('[registerAsExpert] Erreur:', error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
+  async getNearbyMechanics(lat: number, lng: number, radius: number = 20): Promise<any[]> {
+    try {
+      const response = await api.get(`/users/nearby/?lat=${lat}&lng=${lng}&radius=${radius}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('[getNearbyMechanics] Erreur:', error?.response?.status, error?.message);
+      return [];
+    }
+  }
+
+  async getNearbySparePartStores(lat: number, lng: number, radius: number = 20): Promise<any[]> {
+    try {
+      const response = await api.get(`/spare-part-stores/nearby/?lat=${lat}&lng=${lng}&radius=${radius}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('[getNearbySparePartStores] Erreur:', error?.response?.status, error?.message);
+      return [];
+    }
+  }
+
+  async getSpareParts(dtcCode?: string): Promise<any[]> {
+    try {
+      const url = dtcCode ? `/spare-parts/?dtc_code=${dtcCode}` : '/spare-parts/';
+      const response = await api.get(url);
+      return response.data;
+    } catch (error: any) {
+      console.error('[getSpareParts] Erreur:', error?.response?.status, error?.message);
       return [];
     }
   }

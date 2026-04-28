@@ -18,6 +18,9 @@ export interface DTCCode {
   // C = Chassis (suspension/freins)
   // U = Network (communication)
 
+  /** Statut du code DTC */
+  status?: 'confirmed' | 'pending' | 'permanent';
+
   /** Niveau de gravité */
   severity: 'low' | 'medium' | 'high' | 'critical';
 

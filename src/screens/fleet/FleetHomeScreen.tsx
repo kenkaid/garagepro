@@ -7,8 +7,14 @@ import {apiService} from '../../services/apiService.ts';
 import {FleetStyles} from '../../styles/fleetTheme.ts';
 
 export const FleetHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
-  const {user, vehicleInfo, setCurrentScreen, setUser, setConnectedDevice} =
-    useStore();
+  const {
+    user,
+    vehicleInfo,
+    setCurrentScreen,
+    setUser,
+    setConnectedDevice,
+    setVehicleInfo,
+  } = useStore();
 
   useEffect(() => {
     setCurrentScreen('home');
@@ -27,6 +33,13 @@ export const FleetHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
 
   const handleDisconnect = async () => {
     setConnectedDevice(null);
+    setVehicleInfo({
+      connected: false,
+      protocol: 'Non détecté',
+      deviceName: '',
+      deviceId: '',
+      vin: 'Non scanné',
+    });
   };
 
   const renderConnectionStatus = () => (
@@ -119,11 +132,14 @@ export const FleetHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
         onPress={() => {
           if (user?.is_trial) {
             Alert.alert(
-              'Période d\'essai active',
+              "Période d'essai active",
               'Vous profitez actuellement de toutes les fonctionnalités Premium gratuitement. Souhaitez-vous voir nos autres offres pour la suite ?',
               [
                 {text: 'Plus tard', style: 'cancel'},
-                {text: 'Voir les offres', onPress: () => navigation.navigate('FleetSubscriptions')},
+                {
+                  text: 'Voir les offres',
+                  onPress: () => navigation.navigate('FleetSubscriptions'),
+                },
               ],
             );
           } else {
@@ -159,7 +175,12 @@ export const FleetHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
   return (
     <ScrollView style={FleetStyles.container}>
       <View style={FleetStyles.header}>
-        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}>
           <View style={{flex: 1}}>
             <Text style={FleetStyles.welcomeText}>
               Bonjour, {user?.first_name || 'Propriétaire'}
@@ -178,12 +199,17 @@ export const FleetHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
                 flexDirection: 'row',
                 alignItems: 'center',
                 borderWidth: 1,
-                borderColor: '#FF9800'
+                borderColor: '#FF9800',
               }}
-              onPress={() => navigation.navigate('FleetSubscriptions')}
-            >
-              <Icon name="clock-outline" size={16} color="#E65100" style={{marginRight: 4}} />
-              <Text style={{color: '#E65100', fontWeight: 'bold', fontSize: 12}}>
+              onPress={() => navigation.navigate('FleetSubscriptions')}>
+              <Icon
+                name="clock-outline"
+                size={16}
+                color="#E65100"
+                style={{marginRight: 4}}
+              />
+              <Text
+                style={{color: '#E65100', fontWeight: 'bold', fontSize: 12}}>
                 ESSAI : {user?.trial_days_remaining || 0}j restants
               </Text>
             </TouchableOpacity>

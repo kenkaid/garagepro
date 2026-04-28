@@ -32,9 +32,12 @@ interface AppState {
   // UI
   currentScreen: string;
   setCurrentScreen: (screen: string) => void;
-  // Ajoute ceci dans ton AppState (interface)
   updateSingleOBDData: (pid: string, value: number | string) => void;
   setLivePIDData: (pid: string, value: number | string) => void;
+
+  // Config
+  isTestMode: boolean;
+  setIsTestMode: (value: boolean) => void;
 }
 
 export const useStore = create<AppState>(set => ({
@@ -82,6 +85,10 @@ export const useStore = create<AppState>(set => ({
   currentScreen: 'home',
   setCurrentScreen: screen => set({currentScreen: screen}),
   resetUnreadScans: () => set({unreadScansCount: 0}),
+
+  // Config
+  isTestMode: false,
+  setIsTestMode: value => set({isTestMode: value}),
   updateSingleOBDData: (pid, value) =>
     set(state => ({
       currentOBDData: state.currentOBDData.map(d =>

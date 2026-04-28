@@ -94,6 +94,7 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
     setConnectedDevice,
     setVehicleInfo,
     setIsScanning,
+    isScanning,
     addDTC,
     clearDTCs,
     setOBDData,
@@ -112,15 +113,15 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
   useEffect(() => {
     if (route.params?.autoRun) {
       if (route.params.vehicleData) {
-        setLicensePlate(route.params.vehicleData.licensePlate || '');
+        setLicensePlate(route.params.vehicleData.licensePlate || route.params.vehicleData.license_plate || '');
         setBrand(route.params.vehicleData.brand || '');
         setModel(route.params.vehicleData.model || '');
-        setYear(route.params.vehicleData.year || '');
+        setYear(route.params.vehicleData.year?.toString() || '');
         setShowLicenseInput(false);
       }
 
-      // Si on est déjà connecté, on peut lancer le diagnostic directement
-      if (useStore.getState().vehicleInfo.connected) {
+      // Si on est déjà connecté (store ET BLE réel), on peut lancer le diagnostic directement
+      if (obdService.isConnected) {
         // Un petit délai pour laisser l'UI s'initialiser
         setTimeout(() => {
           runFullDiagnostic();
@@ -131,7 +132,11 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
 
   // Réinitialiser les champs si on n'est pas déjà en train de scanner ou connecté
   useEffect(() => {
-    if (!vehicleInfo.connected && !route.params?.autoRun) {
+    if (isScanning || route.params?.autoRun) {
+      return;
+    }
+
+    if (!vehicleInfo.connected) {
       setLicensePlate('');
       setBrand('');
       setModel('');
@@ -274,7 +279,6 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
 
     if (success) {
       setConnectedDevice(device);
-      obdService.setConnectedDevice(device);
       setVehicleInfo({connected: true, deviceName: device.name || 'ELM327'});
 
       try {
@@ -297,6 +301,11 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
     // Éviter de lancer deux diagnostics en même temps
     if (useStore.getState().isScanning) {
       console.log('Scan déjà en cours, annulation du nouvel appel');
+      return;
+    }
+
+    if (!obdService.isConnected) {
+      Alert.alert('Non connecté', 'Veuillez vous connecter à un appareil OBD avant de lancer le diagnostic.');
       return;
     }
 
@@ -371,10 +380,15 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
         `${detectedDtcs.length} code(s) défaut trouvé(s). ${obdData.length} paramètres lus.`,
       );
 
-      const target = (route.params?.scanType === 'EXPERT' || scanType === 'EXPERT') ? 'ExpertResults' : 'Results';
+      const target = (route.params?.scanType === 'EXPERT' || scanType === 'EXPERT') 
+        ? (user?.user_type === 'INDIVIDUAL' ? 'ExpertResults' : 'ExpertResults') 
+        : 'Results';
+      
+      // Note: ExpertResults est redirigé vers l'écran individual via le Navigator pour les particuliers
       navigation.navigate(target, {
         scan: (savedScan || scanSession) as any,
-        scanType: route.params?.scanType || scanType
+        scanType: route.params?.scanType || scanType,
+        isNewScan: true,
       });
     } catch (error: any) {
       let errorMessage = 'Une erreur est survenue lors du diagnostic.';
@@ -662,14 +676,17 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
               <Card.Content>
                 {/* @ts-ignore */}
                 <Text style={styles.connectedText}>
-                  Équipement connecté : {vehicleInfo.deviceName}
+                  Équipement : {vehicleInfo.deviceName || 'Connecté'}
                 </Text>
-                <ProgressBar progress={scanProgress} style={styles.progress} />
+                <View style={styles.progressContainer}>
+                  <ProgressBar progress={scanProgress} color="#4CAF50" style={styles.progress} />
+                  <Text style={styles.progressText}>{Math.round(scanProgress * 100)}%</Text>
+                </View>
                 <Button
                   mode="contained"
                   onPress={runFullDiagnostic}
-                  loading={useStore.getState().isScanning}
-                  disabled={useStore.getState().isScanning}
+                  loading={isScanning}
+                  disabled={isScanning}
                   icon="play"
                   style={styles.diagnosticButton}>
                   Lancer le diagnostic complet
@@ -769,6 +786,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2196F3',
+  },
+  progressContainer: {
+    marginVertical: 10,
+  },
+  progressText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
   },
   statLabel: {
     fontSize: 10,

@@ -12,6 +12,11 @@ import {DTCBaseScreen} from '../screens/garage/DTCBaseScreen';
 import {ProfileScreen} from '../screens/shared/ProfileScreen';
 import {SubscriptionScreen} from '../screens/shared/SubscriptionScreen';
 import {UpcomingModulesScreen} from '../screens/shared/UpcomingModulesScreen';
+import NotificationsScreen from '../screens/garage/NotificationsScreen';
+import {ChatScreen} from '../screens/shared/ChatScreen';
+import {ChatDetailScreen} from '../screens/shared/ChatDetailScreen';
+import {SendResultsScreen} from '../screens/garage/SendResultsScreen';
+import {AppointmentsScreen} from '../screens/shared/AppointmentsScreen';
 
 const Stack = createStackNavigator();
 
@@ -81,6 +86,31 @@ export const ProNavigator = () => (
       name="UpcomingModules"
       component={UpcomingModulesScreen}
       options={{title: 'Modules à venir'}}
+    />
+    <Stack.Screen
+      name="Notifications"
+      component={NotificationsScreen}
+      options={{title: 'Mes Notifications'}}
+    />
+    <Stack.Screen
+      name="Chat"
+      component={ChatScreen}
+      options={{title: 'Messages'}}
+    />
+    <Stack.Screen
+      name="ChatDetail"
+      component={ChatDetailScreen}
+      options={({route}) => ({title: (route.params as any)?.title || 'Discussion'})}
+    />
+    <Stack.Screen
+      name="SendResults"
+      component={SendResultsScreen}
+      options={{title: 'Partager Rapport'}}
+    />
+    <Stack.Screen
+      name="Appointments"
+      component={AppointmentsScreen}
+      options={{title: 'Mes Rendez-vous'}}
     />
   </Stack.Navigator>
 );

@@ -22,6 +22,7 @@ import {
 import {useStore} from '../../store/useStore';
 import {apiService} from '../../services/apiService';
 import {obdService} from '../../services/obdService';
+import {telemetrySyncService} from '../../services/telemetrySyncService';
 import {Colors, SharedStyles} from '../../styles/theme';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -99,6 +100,8 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
         {
           text: 'Se déconnecter',
           onPress: async () => {
+            // Arrêter tous les services d'arrière-plan avant de supprimer le token
+            telemetrySyncService.stop();
             await apiService.logout();
             setUser(null);
             setScanHistory([]);

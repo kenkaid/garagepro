@@ -136,16 +136,75 @@ export class OBDParser {
     const dtcs: string[] = [];
     // Le format ELM327 pour le mode 03 est souvent des paires d'octets en hexadécimal.
     // "43 01 03 01 04 00 00" -> 43 (mode 3 response), puis couples d'octets.
-    const clean = data.replace(/\s/g, '');
-    
-    for (let i = 0; i < clean.length - 3; i += 4) {
+    // On nettoie d'abord les caractères parasites
+    const clean = data
+      .replace(/>/g, '')
+      .replace(/\r/g, '')
+      .replace(/\n/g, ' ')
+      .replace(/\s/g, '');
+
+    // Ignorer le header de réponse (43 ou 43xx)
+    let start = 0;
+    if (clean.startsWith('43')) {
+      start = 2;
+    }
+
+    for (let i = start; i < clean.length - 3; i += 4) {
       const byte1Hex = clean.substring(i, i + 2);
       const byte2Hex = clean.substring(i + 2, i + 4);
-      
+
+      if (!/^[0-9A-Fa-f]{2}$/.test(byte1Hex) || !/^[0-9A-Fa-f]{2}$/.test(byte2Hex)) {
+        continue;
+      }
+
       const byte1 = parseInt(byte1Hex, 16);
       const byte2 = parseInt(byte2Hex, 16);
 
       if (byte1 === 0 && byte2 === 0) continue; // Padding
+
+      const dtc = this.bytesToDTC(byte1, byte2);
+      if (dtc && dtc !== 'P0000') {
+        dtcs.push(dtc);
+      }
+    }
+
+    return dtcs;
+  }
+
+  // Parse les codes défaut via UDS Mode 19 (tous systèmes : SRS airbag, BCM portes, ABS)
+  // Format réponse : "59 02 FF XX XX XX XX ..." où chaque DTC = 3 octets (2 code + 1 status)
+  static parseDTCsExtended(data: string): string[] {
+    const dtcs: string[] = [];
+    const clean = data
+      .replace(/>/g, '')
+      .replace(/\r/g, '')
+      .replace(/\n/g, ' ')
+      .replace(/\s/g, '');
+
+    // Chercher le header de réponse UDS 5902 ou 590209
+    let start = 0;
+    const idx5902 = clean.indexOf('5902');
+    if (idx5902 !== -1) {
+      // Sauter "5902" + 2 octets de status mask = 8 chars
+      start = idx5902 + 8;
+    } else {
+      return dtcs;
+    }
+
+    // Chaque DTC = 3 octets (6 chars hex) : 2 octets code + 1 octet status
+    for (let i = start; i + 5 < clean.length; i += 6) {
+      const byte1Hex = clean.substring(i, i + 2);
+      const byte2Hex = clean.substring(i + 2, i + 4);
+      // byte3 = status, on l'ignore pour le parsing
+
+      if (!/^[0-9A-Fa-f]{2}$/.test(byte1Hex) || !/^[0-9A-Fa-f]{2}$/.test(byte2Hex)) {
+        continue;
+      }
+
+      const byte1 = parseInt(byte1Hex, 16);
+      const byte2 = parseInt(byte2Hex, 16);
+
+      if (byte1 === 0 && byte2 === 0) continue;
 
       const dtc = this.bytesToDTC(byte1, byte2);
       if (dtc && dtc !== 'P0000') {

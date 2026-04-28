@@ -1,288 +1,423 @@
-import React from 'react';
-import {View, StyleSheet, Image, Text} from 'react-native';
-import {Card, Divider, List} from 'react-native-paper';
-import {getSeverityColor, getSeverityLabel} from '../../utils/diagnosticUtils';
-
-export interface DTCData {
-  code: string;
-  severity?: string;
-  description?: string;
-  meaning?: string;
-  partImageUrl?: string;
-  part_image_url?: string;
-  partLocation?: string;
-  part_location?: string;
-  possibleCauses?: string[];
-  probable_causes?: string[];
-  probable_causes_list?: string[];
-  suggestedFixes?: string[];
-  suggested_solutions?: string[];
-  suggested_solutions_list?: string[];
-}
+import React, {useState} from 'react';
+import {View, Text, StyleSheet, TouchableOpacity, Linking, Image} from 'react-native';
+import {Card, Divider, Chip} from 'react-native-paper';
 
 interface DTCCardProps {
-  dtc: string | DTCData;
+  dtc: any;
   isHistoryView?: boolean;
   historyScan?: any;
+  vehicleBrand?: string;
+  vehicleModel?: string;
   children?: React.ReactNode;
 }
 
+const getSeverityColor = (severity: string) => {
+  switch (severity?.toLowerCase()) {
+    case 'high':
+    case 'critical':
+      return '#D32F2F';
+    case 'medium':
+      return '#F57C00';
+    case 'low':
+      return '#388E3C';
+    default:
+      return '#757575';
+  }
+};
+
+const getSeverityLabel = (severity: string) => {
+  switch (severity?.toLowerCase()) {
+    case 'high':
+    case 'critical':
+      return '🔴 Élevée';
+    case 'medium':
+      return '🟠 Moyenne';
+    case 'low':
+      return '🟢 Faible';
+    default:
+      return '⚪ Inconnue';
+  }
+};
+
+const getStatusBadge = (status: string) => {
+  switch (status?.toLowerCase()) {
+    case 'confirmed':
+      return { label: 'CONFIRMÉ', color: '#D32F2F', bgColor: '#FFEBEE' };
+    case 'pending':
+      return { label: 'EN ATTENTE', color: '#F57C00', bgColor: '#FFF3E0' };
+    case 'permanent':
+      return { label: 'PERMANENT', color: '#455A64', bgColor: '#ECEFF1' };
+    default:
+      return null;
+  }
+};
+
 export const DTCCard: React.FC<DTCCardProps> = ({
   dtc,
-  isHistoryView,
-  historyScan,
+  vehicleBrand,
+  vehicleModel,
   children,
 }) => {
-  // Si dtc est une chaîne de caractères (code brut), on essaie de le résoudre
-  const dtcData: DTCData = typeof dtc === 'string' ? {code: dtc} : dtc;
-  const severity = (dtcData?.severity || 'medium').toString();
-  const code = (dtcData?.code || 'INCONNU').toString();
+  const [expanded, setExpanded] = useState(true);
 
-  // Détection si c'est un code "expert" (ABS/SRS/Châssis)
-  const isExpertCode =
-    code &&
-    typeof code === 'string' &&
-    (code.startsWith('C') || code.startsWith('B') || code.startsWith('U'));
+  const dtcData = typeof dtc === 'string' ? {code: dtc} : dtc;
+
+  // Si c'est un objet ScanSessionDTC, les données réelles du code sont dans dtc_details
+  const effectiveDtc = dtcData.dtc_details || dtcData;
+
+  const code = dtcData.code || effectiveDtc.code || dtcData;
+  const description = dtcData.description || effectiveDtc.description || '';
+  const meaning = dtcData.meaning || effectiveDtc.meaning || '';
+  const severity = dtcData.severity || effectiveDtc.severity || '';
+  const status = dtcData.status || '';
+
+  // Symptômes : commonSymptoms (camelCase backend) ou symptoms
+  const symptoms: string[] =
+    dtcData.commonSymptoms ||
+    effectiveDtc.commonSymptoms ||
+    dtcData.symptoms ||
+    effectiveDtc.symptoms ||
+    [];
+
+  // Causes : possibleCauses (camelCase) ou probable_causes (si déjà parsé)
+  const causes: string[] =
+    dtcData.possibleCauses ||
+    effectiveDtc.possibleCauses ||
+    dtcData.probable_causes ||
+    effectiveDtc.probable_causes ||
+    [];
+
+  // Solutions : suggestedFixes (camelCase) ou suggested_solutions
+  const solutions: string[] =
+    dtcData.suggestedFixes ||
+    effectiveDtc.suggestedFixes ||
+    dtcData.suggested_solutions ||
+    effectiveDtc.suggested_solutions ||
+    [];
+
+  const tips: string = dtcData.tips || effectiveDtc.tips || '';
+  const warnings: string = dtcData.warnings || effectiveDtc.warnings || '';
+
+  // Pièces recommandées (Drive-to-Store)
+  const recommendedParts: any[] =
+    dtcData.recommended_spare_parts ||
+    dtcData.recommendedSpareParts ||
+    effectiveDtc.recommended_spare_parts ||
+    effectiveDtc.recommendedSpareParts ||
+    [];
+
+  const severityColor = getSeverityColor(severity);
+  const statusInfo = getStatusBadge(status);
 
   return (
-    <Card
-      key={code}
-      style={[styles.dtcCard, isExpertCode && styles.expertDtcCard]}>
-      <Card.Content>
-        <View style={styles.dtcHeader}>
-          <View>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Text style={styles.dtcCode}>{code}</Text>
-              {isExpertCode && (
-                <View style={styles.expertBadge}>
-                  <Text style={styles.expertBadgeText}>EXPERT</Text>
+    <Card style={styles.card}>
+      <TouchableOpacity onPress={() => setExpanded(!expanded)} activeOpacity={0.8}>
+        <View style={[styles.header, {borderLeftColor: severityColor}]}>
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              onPress={() => {
+                const vehiclePart = vehicleBrand || vehicleModel
+                  ? `+${encodeURIComponent((vehicleBrand || '') + ' ' + (vehicleModel || '')).trim()}`
+                  : '';
+                Linking.openURL(`https://www.google.com/search?q=code+erreur+OBD+${code}${vehiclePart}`);
+              }}
+              activeOpacity={0.7}>
+              <Text style={[styles.code, {color: severityColor}]}>
+                {code} <Text style={styles.googleLink}>🔍</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.badgesContainer}>
+              {statusInfo && (
+                <View style={[styles.statusBadge, { backgroundColor: statusInfo.bgColor }]}>
+                  <Text style={[styles.statusText, { color: statusInfo.color }]}>
+                    {statusInfo.label}
+                  </Text>
                 </View>
               )}
-            </View>
-            {isHistoryView &&
-              historyScan?.ai_predictions?.summary?.confidence_score && (
-                <Text style={styles.confidenceScore}>
-                  Fiabilité :{' '}
-                  {Math.round(
-                    historyScan.ai_predictions.summary.confidence_score * 100,
-                  )}
-                  %
+              {severity ? (
+                <Text style={[styles.severityBadge, {color: severityColor}]}>
+                  {getSeverityLabel(severity)}
                 </Text>
-              )}
+              ) : null}
+            </View>
           </View>
-          <View
-            style={[
-              styles.severityBadge,
-              {backgroundColor: getSeverityColor(severity)},
-            ]}>
-            <Text style={styles.severityText}>{getSeverityLabel(severity)}</Text>
-          </View>
+          <Text style={styles.googleHint}>Appuyez sur le code pour rechercher sur Google</Text>
+          {description ? (
+            <Text style={styles.description}>{description}</Text>
+          ) : null}
+          <Text style={styles.expandHint}>{expanded ? '▲ Réduire' : '▼ Voir détails'}</Text>
         </View>
-        <Text style={styles.description}>
-          {dtcData.description || 'Pas de description disponible'}
-        </Text>
+      </TouchableOpacity>
 
-        {!!dtcData.meaning && (
-          <View style={styles.meaningContainer}>
-            <Text style={styles.meaningTitle}>💡 Explication :</Text>
-            <Text style={styles.meaningText}>{dtcData.meaning}</Text>
-          </View>
-        )}
+      {expanded && (
+        <View style={styles.body}>
+          {meaning ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>📋 Explication</Text>
+              <Text style={styles.bodyText}>{meaning}</Text>
+            </View>
+          ) : null}
 
-        <Divider style={styles.divider} />
+          {symptoms.length > 0 && (
+            <>
+              <Divider style={styles.divider} />
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>⚠️ Symptômes Communs</Text>
+                {symptoms.map((s, i) => (
+                  <Text key={i} style={styles.listItem}>• {s}</Text>
+                ))}
+              </View>
+            </>
+          )}
 
-        {!!(dtcData.partImageUrl || dtcData.part_image_url) && (
-          <View style={styles.visualAide}>
-            <Text style={styles.sectionTitle}>📸 À quoi ça ressemble ?</Text>
-            <Image
-              source={{uri: dtcData.partImageUrl || dtcData.part_image_url}}
-              style={styles.partImage}
-              resizeMode="cover"
-            />
-            <Text style={styles.locationText}>
-              📍 Emplacement :{' '}
-              {String(
-                dtcData.partLocation || dtcData.part_location || 'Non spécifié',
-              )}
-            </Text>
-          </View>
-        )}
+          {causes.length > 0 && (
+            <>
+              <Divider style={styles.divider} />
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>🔍 Causes Possibles</Text>
+                {causes.map((c, i) => (
+                  <Text key={i} style={styles.listItem}>• {c}</Text>
+                ))}
+              </View>
+            </>
+          )}
 
-        {!!(
-          dtcData.possibleCauses ||
-          dtcData.suggestedFixes ||
-          dtcData.probable_causes ||
-          dtcData.suggested_solutions ||
-          dtcData.probable_causes_list ||
-          dtcData.suggested_solutions_list
-        ) && (
-          <List.Accordion
-            title="Causes & Solutions"
-            left={props => <List.Icon {...props} icon="wrench" />}>
-            {(dtcData.possibleCauses ||
-              dtcData.probable_causes ||
-              dtcData.probable_causes_list) &&
-              Array.isArray(
-                dtcData.possibleCauses ||
-                  dtcData.probable_causes ||
-                  dtcData.probable_causes_list,
-              ) && (
-                <View style={{paddingLeft: 16}}>
-                  <Text style={styles.subTitle}>Causes probables :</Text>
-                  {(
-                    dtcData.possibleCauses ||
-                    dtcData.probable_causes ||
-                    dtcData.probable_causes_list
-                  ).map((cause: string, i: number) => (
-                    <Text key={i}>• {String(cause)}</Text>
-                  ))}
-                </View>
-              )}
-            {(dtcData.possibleCauses ||
-              dtcData.probable_causes ||
-              dtcData.probable_causes_list) &&
-              Array.isArray(
-                dtcData.possibleCauses ||
-                  dtcData.probable_causes ||
-                  dtcData.probable_causes_list,
-              ) &&
-              (dtcData.suggestedFixes ||
-                dtcData.suggested_solutions ||
-                dtcData.suggested_solutions_list) &&
-              Array.isArray(
-                dtcData.suggestedFixes ||
-                  dtcData.suggested_solutions ||
-                  dtcData.suggested_solutions_list,
-              ) && <Divider style={{marginVertical: 5}} />}
-            {(dtcData.suggestedFixes ||
-              dtcData.suggested_solutions ||
-              dtcData.suggested_solutions_list) &&
-              Array.isArray(
-                dtcData.suggestedFixes ||
-                  dtcData.suggested_solutions ||
-                  dtcData.suggested_solutions_list,
-              ) && (
-                <View style={{paddingLeft: 16}}>
-                  <Text style={styles.subTitle}>Solutions suggérées :</Text>
-                  {(
-                    dtcData.suggestedFixes ||
-                    dtcData.suggested_solutions ||
-                    dtcData.suggested_solutions_list
-                  ).map((fix: string, i: number) => (
-                    <Text key={i}>• {String(fix)}</Text>
-                  ))}
-                </View>
-              )}
-          </List.Accordion>
-        )}
+          {solutions.length > 0 && (
+            <>
+              <Divider style={styles.divider} />
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>🔧 Diagnostics et Solutions</Text>
+                {solutions.map((s, i) => (
+                  <Text key={i} style={styles.listItem}>• {s}</Text>
+                ))}
+              </View>
+            </>
+          )}
 
-      {children}
-    </Card.Content>
-  </Card>
+          {tips ? (
+            <>
+              <Divider style={styles.divider} />
+              <View style={[styles.section, styles.tipsBox]}>
+                <Text style={styles.tipsText}>💡 Conseil : {tips}</Text>
+              </View>
+            </>
+          ) : null}
+
+          {warnings ? (
+            <>
+              <Divider style={styles.divider} />
+              <View style={[styles.section, styles.warningBox]}>
+                <Text style={styles.warningText}>⚠️ Avertissement : {warnings}</Text>
+              </View>
+            </>
+          ) : null}
+
+          {recommendedParts.length > 0 ? (
+            <>
+              <Divider style={styles.divider} />
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, {color: '#1A237E'}]}>🛒 Pièces disponibles (Drive-to-Store)</Text>
+                {recommendedParts.map((part, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.partCard}
+                    onPress={() => {
+                      if (part.store_details?.phone) {
+                        Linking.openURL(`tel:${part.store_details.phone}`);
+                      }
+                    }}
+                  >
+                    <View style={styles.partInfo}>
+                      <Text style={styles.partName}>{part.name}</Text>
+                      <Text style={styles.partBrand}>{part.brand} • {part.store_details?.name}</Text>
+                      <View style={styles.locationRow}>
+                        <Text style={styles.locationText}>📍 {part.store_details?.location_name}</Text>
+                        <Chip style={styles.priceChip} textStyle={styles.priceText}>{part.price} FCFA</Chip>
+                      </View>
+                    </View>
+                    <Text style={styles.callIcon}>📞</Text>
+                  </TouchableOpacity>
+                ))}
+                <Text style={styles.storeInfoHint}>Cliquez sur une pièce pour appeler le magasin.</Text>
+              </View>
+            </>
+          ) : null}
+
+          {children ? (
+            <>
+              <Divider style={styles.divider} />
+              {children}
+            </>
+          ) : null}
+        </View>
+      )}
+    </Card>
   );
 };
 
 const styles = StyleSheet.create({
-  dtcCard: {
-    marginBottom: 16,
-    borderRadius: 12,
-    elevation: 4,
+  card: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    elevation: 3,
     backgroundColor: '#fff',
-    borderLeftWidth: 4,
-    borderLeftColor: '#6200ee',
+    borderRadius: 8,
+    overflow: 'hidden',
   },
-  expertDtcCard: {
-    borderLeftColor: '#FF9800',
-    backgroundColor: '#FFFDE7',
+  header: {
+    padding: 16,
+    borderLeftWidth: 5,
   },
-  dtcHeader: {
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  dtcCode: {
-    fontSize: 22,
+  code: {
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#1a1a1a',
   },
-  expertBadge: {
-    backgroundColor: '#FF9800',
-    paddingHorizontal: 8,
+  googleLink: {
+    fontSize: 16,
+  },
+  googleHint: {
+    fontSize: 11,
+    color: '#1565C0',
+    marginTop: 2,
+    textDecorationLine: 'underline',
+  },
+  severityBadge: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  badgesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusBadge: {
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
-    marginLeft: 8,
+    marginRight: 8,
   },
-  expertBadgeText: {
-    color: 'white',
+  statusText: {
     fontSize: 10,
     fontWeight: 'bold',
   },
-  confidenceScore: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  severityBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  severityText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-  },
   description: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 12,
-    lineHeight: 22,
-  },
-  meaningContainer: {
-    backgroundColor: '#F5F5F5',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  meaningTitle: {
-    fontWeight: 'bold',
-    color: '#6200ee',
-    marginBottom: 4,
-  },
-  meaningText: {
     fontSize: 14,
-    color: '#444',
+    color: '#333',
+    marginTop: 4,
     fontStyle: 'italic',
   },
-  divider: {
-    marginVertical: 12,
+  expandHint: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 8,
+    textAlign: 'right',
   },
-  visualAide: {
-    marginBottom: 16,
+  body: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
+  section: {
+    marginTop: 12,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#666',
+    color: '#333',
+    marginBottom: 6,
   },
-  partImage: {
-    width: '100%',
-    height: 180,
+  bodyText: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+  },
+  listItem: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 22,
+    marginLeft: 4,
+  },
+  divider: {
+    marginTop: 12,
+    backgroundColor: '#eee',
+  },
+  tipsBox: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 6,
+    padding: 10,
+  },
+  tipsText: {
+    fontSize: 13,
+    color: '#1565C0',
+    lineHeight: 20,
+  },
+  warningBox: {
+    backgroundColor: '#FFF3E0',
+    borderRadius: 6,
+    padding: 10,
+  },
+  warningText: {
+    fontSize: 13,
+    color: '#E65100',
+    lineHeight: 20,
+  },
+  partCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
     borderRadius: 8,
-    marginBottom: 8,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E8EAF6',
+  },
+  partInfo: {
+    flex: 1,
+  },
+  partName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  partBrand: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
   },
   locationText: {
-    fontSize: 13,
-    color: '#666',
-    fontStyle: 'italic',
+    fontSize: 12,
+    color: '#1A237E',
+    lineHeight: 20,
   },
-  subTitle: {
+  priceChip: {
+    height: 24,
+    backgroundColor: '#E8EAF6',
+  },
+  priceText: {
+    fontSize: 11,
     fontWeight: 'bold',
+    color: '#1A237E',
+    marginVertical: 0,
+  },
+  callIcon: {
+    fontSize: 20,
+    marginLeft: 10,
+  },
+  storeInfoHint: {
+    fontSize: 11,
+    color: '#999',
+    fontStyle: 'italic',
     marginTop: 8,
-    marginBottom: 4,
-    color: '#444',
   },
 });

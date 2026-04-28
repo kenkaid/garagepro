@@ -14,11 +14,11 @@ export const GarageStyles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   header: {
-    padding: 25,
+    padding: 15,
     backgroundColor: GarageColors.headerBackground,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    marginBottom: 20,
+    marginBottom: 10,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 4},

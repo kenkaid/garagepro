@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import {View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Text as RNText} from 'react-native';
+import {View, StyleSheet, ScrollView, TouchableOpacity, Image, Alert, Text as RNText, Linking} from 'react-native';
 import {
   Button,
   Card,
@@ -17,7 +17,7 @@ import {apiService} from '../../services/apiService';
 import {useStore} from '../../store/useStore';
 
 export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) => {
-  const {user, setUser} = useStore();
+  const {user, setUser, isTestMode} = useStore();
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -61,6 +61,54 @@ export const SubscriptionScreen: React.FC<{navigation: any}> = ({navigation}) =>
   };
 
   const handlePayment = async (method: string) => {
+    if (method === 'WAVE') {
+      setPaymentLoading(true);
+      const result = await apiService.initWavePayment(
+        selectedPlan.id,
+        parseInt(durationMonths, 10),
+      );
+      setPaymentLoading(false);
+
+      // Mode test : paiement simulé, pas de redirection Wave
+      if (result && result.test_mode) {
+        const updatedUser = await apiService.getCurrentUser();
+        if (updatedUser) setUser(updatedUser);
+        setShowPaymentMethods(false);
+        setShowQuotation(false);
+        Alert.alert(
+          '✅ Paiement simulé',
+          'Mode test actif — aucun débit réel. Votre abonnement a été activé pour les tests.',
+        );
+        navigation.goBack();
+        return;
+      }
+
+      if (result && result.wave_launch_url) {
+        console.log('[DEBUG_LOG] Wave Launch URL found:', result.wave_launch_url);
+        setShowPaymentMethods(false);
+        setShowQuotation(false);
+        
+        // Ouvrir l'application Wave ou le navigateur
+        try {
+          console.log('[DEBUG_LOG] Attempting to open Linking.openURL...');
+          await Linking.openURL(result.wave_launch_url);
+          console.log('[DEBUG_LOG] Linking.openURL successful');
+          Alert.alert(
+            'Paiement en cours',
+            'Veuillez finaliser le paiement dans l\'application Wave. Votre abonnement sera activé automatiquement une fois terminé.'
+          );
+          navigation.goBack();
+        } catch (err) {
+          console.error('[DEBUG_LOG] Linking.openURL error:', err);
+          Alert.alert('Erreur', 'Impossible d\'ouvrir l\'application Wave.');
+        }
+      } else {
+        console.error('[DEBUG_LOG] Wave init failed or no wave_launch_url in result:', result);
+        Alert.alert('Erreur', 'Impossible d\'initier le paiement Wave.');
+      }
+      return;
+    }
+
     setPaymentLoading(true);
     const transactionId = `${method}_` + Date.now();
     const result = await apiService.changeSubscriptionPlan(

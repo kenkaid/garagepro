@@ -81,7 +81,7 @@ export const ExpertiseScreen: React.FC<{navigation: any; route: any}> = ({
           <Card.Content>
             <Text variant="titleSmall" style={styles.infoTitle}>Note importante</Text>
             <RNText style={styles.infoText}>
-              L'utilisation d'un adaptateur compatible (vLinker, OBDLink ou ELM327 V1.5 original) est recommandée pour interroger les modules profonds (ABS/SRS). Votre ELM327 V2.1 actuel pourra lire les données moteur mais pourrait être limité pour l'ABS.
+              L'utilisation d'un adaptateur compatible (vLinker, OBDLink ou ELM327 V1.5 original) est recommandée pour interroger les modules profonds (ABS/SRS).
             </RNText>
           </Card.Content>
         </Card>

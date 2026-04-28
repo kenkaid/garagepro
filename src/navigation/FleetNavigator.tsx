@@ -9,6 +9,9 @@ import {FleetSubscriptionScreen} from '../screens/fleet/FleetSubscriptionScreen'
 import {ProfileScreen} from '../screens/shared/ProfileScreen';
 import {UpcomingModulesScreen} from '../screens/shared/UpcomingModulesScreen';
 import {ExpertiseScreen} from '../screens/garage/ExpertiseScreen';
+import {ScanScreen} from '../screens/garage/ScanScreen';
+import {ResultsScreen} from '../screens/garage/ResultsScreen';
+import {ExpertResultsScreen} from '../screens/garage/ExpertResultsScreen';
 
 const Stack = createStackNavigator();
 
@@ -58,6 +61,21 @@ export const FleetNavigator = () => (
       name="Expertise"
       component={ExpertiseScreen}
       options={{title: 'Expertise Occasion'}}
+    />
+    <Stack.Screen
+      name="Scan"
+      component={ScanScreen}
+      options={{title: 'Connexion OBD'}}
+    />
+    <Stack.Screen
+      name="Results"
+      component={ResultsScreen}
+      options={{title: 'Résultats'}}
+    />
+    <Stack.Screen
+      name="ExpertResults"
+      component={ExpertResultsScreen}
+      options={{title: 'Rapport Expertise'}}
     />
     <Stack.Screen
       name="UpcomingModules"

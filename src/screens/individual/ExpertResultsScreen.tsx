@@ -1,4 +1,4 @@
-// src/screens/ResultsScreen.tsx
+// src/screens/individual/ExpertResultsScreen.tsx
 import React, {useState} from 'react';
 import {View, StyleSheet, ScrollView, Alert, Text} from 'react-native';
 import {Card, Button, Divider, List} from 'react-native-paper';
@@ -13,7 +13,6 @@ export const ExpertResultsScreen: React.FC<{navigation: any; route: any}> = ({
   route,
 }) => {
   const {
-    user,
     currentDTCs,
     clearDTCs,
     vehicleInfo,
@@ -23,16 +22,7 @@ export const ExpertResultsScreen: React.FC<{navigation: any; route: any}> = ({
   } = useStore();
 
   const getHomeRoute = () => {
-    switch (user?.user_type) {
-      case 'FLEET_OWNER':
-        return 'FleetHome';
-      case 'INDIVIDUAL':
-        return 'IndividualHome';
-      case 'MECHANIC':
-        return 'ProHome';
-      default:
-        return 'ProHome';
-    }
+    return 'IndividualHome';
   };
 
   // Si on vient de l'historique, on utilise les données de la route
@@ -45,14 +35,12 @@ export const ExpertResultsScreen: React.FC<{navigation: any; route: any}> = ({
   const [isClearing, setIsClearing] = useState(false); // État pour le chargement du bouton d'effacement
 
   // Choix des DTC à afficher : soit ceux du store (nouveau scan), soit ceux de l'historique
-  // Fusionner les données de l'IA dans l'historique si disponibles
   const aiDiagnostics = isHistoryView
     ? historyScan?.ai_predictions?.diagnostics
     : [];
 
   const displayDTCs = isHistoryView
     ? (historyScan.found_dtcs || []).map((dtc: any) => {
-        // Trouver la prédiction correspondante pour enrichir le DTC de base
         const prediction = aiDiagnostics?.find(
           (p: any) => p.code === (dtc.code || dtc),
         );
@@ -63,7 +51,7 @@ export const ExpertResultsScreen: React.FC<{navigation: any; route: any}> = ({
       : (currentDTCs.length > 0 ? currentDTCs : (route.params?.scan?.found_dtcs || []));
   const displayVehicle = isHistoryView ? historyScan.vehicle : vehicleInfo;
 
-  // Sécurisation des données véhicule (Backend snake_case vs Frontend camelCase)
+  // Sécurisation des données véhicule
   const vehicleBrand =
     historyScan?.vehicle?.brand ||
     (route.params?.scan?.vehicle as any)?.brand ||
@@ -116,7 +104,7 @@ export const ExpertResultsScreen: React.FC<{navigation: any; route: any}> = ({
         : currentDTCs.map(d => d.code),
       notes: isHistoryView
         ? historyScan.notes
-        : "Expertise effectuée via l'application mobile.",
+        : "Expertise effectuée via l'application mobile (Particulier).",
       mileage_ecu: isHistoryView
         ? historyScan.mileage_ecu
         : route.params?.scan?.mileage_ecu,
@@ -131,7 +119,6 @@ export const ExpertResultsScreen: React.FC<{navigation: any; route: any}> = ({
         : route.params?.scan?.safety_check,
     };
 
-    // Important : On transmet l'ID si on est en train de modifier un scan existant
     if (isHistoryView && historyScan.id) {
       scanData.id = historyScan.id;
     }
@@ -191,7 +178,6 @@ export const ExpertResultsScreen: React.FC<{navigation: any; route: any}> = ({
       ? historyScan.safety_check
       : session.safety_check;
 
-    // Récupération du score de santé (uniquement via historique car calculé côté backend)
     const healthScore = historyScan?.health_score;
     const buyingRecommendation = historyScan?.buying_recommendation;
 
@@ -200,25 +186,17 @@ export const ExpertResultsScreen: React.FC<{navigation: any; route: any}> = ({
     }
 
     const getScoreColor = (score: number) => {
-      if (score >= 80) {
-        return '#388E3C';
-      }
-      if (score >= 50) {
-        return '#FBC02D';
-      }
+      if (score >= 80) return '#388E3C';
+      if (score >= 50) return '#FBC02D';
       return '#D32F2F';
     };
 
     const getRecommendationColor = (rec: string) => {
       switch (rec) {
-        case 'ACHETER':
-          return '#388E3C';
-        case 'NÉGOCIER':
-          return '#F57C00';
-        case 'FUIR':
-          return '#D32F2F';
-        default:
-          return '#757575';
+        case 'ACHETER': return '#388E3C';
+        case 'NÉGOCIER': return '#F57C00';
+        case 'FUIR': return '#D32F2F';
+        default: return '#757575';
       }
     };
 
@@ -231,7 +209,6 @@ export const ExpertResultsScreen: React.FC<{navigation: any; route: any}> = ({
       <Card style={styles.expertiseResultCard}>
         <Card.Title
           title="🛡️ Expertise Anti-fraude & Sécurité"
-          /* eslint-disable-next-line react-native/no-inline-styles */
           titleStyle={{fontSize: 16, fontWeight: 'bold', color: '#1976D2'}}
         />
         <Card.Content>
@@ -370,57 +347,47 @@ export const ExpertResultsScreen: React.FC<{navigation: any; route: any}> = ({
           icon="engine-off"
           loading={isClearing}
           disabled={isClearing}
-          onPress={() => {
-            Alert.alert(
-              'Confirmation',
-              'Voulez-vous vraiment effacer les codes défauts du véhicule ? Cela éteindra le voyant moteur au tableau de bord.',
-              [
-                {text: 'Annuler', style: 'cancel'},
-                {
-                  text: 'Effacer',
-                  style: 'destructive',
-                  onPress: async () => {
-                    setIsClearing(true);
-                    const success = await obdService.clearAllDTCs();
-                    setIsClearing(false);
+          onPress={async () => {
+            if (!obdService.isConnected) {
+              Alert.alert('Non connecté', "Vous devez être connecté à l'appareil OBD.");
+              return;
+            }
 
-                    if (success) {
-                      // On informe le backend de l'effacement
-                      const clearScanData: any = {
-                        scan_type: 'VERIFICATION',
-                        vehicle: {
-                          license_plate: vehiclePlate,
-                          brand: vehicleBrand,
-                          model: vehicleModel,
-                          year: vehicleYear,
-                        },
-                        dtc_codes: [],
-                        notes: 'Codes défauts effacés avec succès (post-expertise).',
-                      };
-                      await apiService.saveScan(clearScanData);
+            setIsClearing(true);
+            const success = await obdService.clearAllDTCs();
+            setIsClearing(false);
 
-                      // Relance automatique du scan de vérification
-                      clearDTCs();
-                      navigation.navigate('Scan', {
-                        autoRun: true,
-                        scanType: 'verification',
-                        vehicleData: {
-                          licensePlate: vehiclePlate,
-                          brand: vehicleBrand,
-                          model: vehicleModel,
-                          year: vehicleYear.toString(),
-                        },
-                      });
-                    } else {
-                      Alert.alert(
-                        'Échec',
-                        "Le véhicule n'a pas pu effacer les codes. Vérifiez que le moteur est éteint et le contact mis.",
-                      );
-                    }
-                  },
+            if (success) {
+              const clearScanData: any = {
+                scan_type: 'VERIFICATION',
+                vehicle: {
+                  license_plate: vehiclePlate,
+                  brand: vehicleBrand,
+                  model: vehicleModel,
+                  year: vehicleYear,
                 },
-              ],
-            );
+                dtc_codes: [],
+                notes: 'Codes défauts effacés avec succès (post-expertise particulier).',
+              };
+              await apiService.saveScan(clearScanData);
+
+              clearDTCs();
+              navigation.replace('Scan', {
+                autoRun: true,
+                scanType: 'EXPERT',
+                vehicleData: {
+                  licensePlate: vehiclePlate,
+                  brand: vehicleBrand,
+                  model: vehicleModel,
+                  year: vehicleYear.toString(),
+                },
+              });
+            } else {
+              Alert.alert(
+                'Échec',
+                "Le véhicule n'a pas pu effacer les codes. Vérifiez que le moteur est éteint et le contact mis.",
+              );
+            }
           }}
           style={styles.clearButton}>
           Effacer les codes défauts
@@ -454,7 +421,6 @@ export const ExpertResultsScreen: React.FC<{navigation: any; route: any}> = ({
         style={styles.cancelButton}>
         <Text style={{color: '#757575'}}>Quitter</Text>
       </Button>
-      {/* eslint-disable-next-line react-native/no-inline-styles */}
       <View style={{height: 40}} />
     </ScrollView>
   );

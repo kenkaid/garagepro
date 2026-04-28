@@ -1,6 +1,6 @@
 // src/screens/ResultsScreen.tsx
 import React, {useState} from 'react';
-import {View, StyleSheet, ScrollView, Alert, Text} from 'react-native';
+import {View, StyleSheet, ScrollView, Alert, Text, ActivityIndicator} from 'react-native';
 import {Card, Button, Divider, TextInput, Switch} from 'react-native-paper';
 import {DTCCard} from '../../components/garage/DTCCard';
 import {VehicleDiagnosticHeader} from '../../components/garage/VehicleDiagnosticHeader';
@@ -14,6 +14,7 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
   route,
 }) => {
   const {
+    user,
     currentDTCs,
     currentOBDData,
     clearDTCs,
@@ -23,13 +24,29 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
     addScanToHistory,
   } = useStore();
 
+  const getHomeRoute = () => {
+    switch (user?.user_type) {
+      case 'FLEET_OWNER':
+        return 'FleetHome';
+      case 'INDIVIDUAL':
+        return 'IndividualHome';
+      case 'MECHANIC':
+        return 'ProHome';
+      default:
+        return 'ProHome';
+    }
+  };
+
   // Si on vient de l'historique, on utilise les données de la route
+  // isNewScan=true signifie qu'on vient d'un scan en direct (pas de l'historique)
   const historyScan = route.params?.scan;
-  const isHistoryView = !!historyScan;
+  const isHistoryView = !!historyScan && !route.params?.isNewScan;
 
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false); // Anti-double clic
   const [isClearing, setIsClearing] = useState(false); // État pour le chargement du bouton d'effacement
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
 
   // On initialise les coûts avec les données de l'historique ou du store
   const [laborCost, setLaborCost] = useState(
@@ -49,40 +66,76 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
     ? historyScan?.ai_predictions?.diagnostics
     : [];
 
+  // Pour un nouveau scan : on priorise currentDTCs (store) car ils sont toujours présents,
+  // puis on tente route.params.scan.found_dtcs comme fallback (cas scan sauvegardé avec DTCs backend)
   const displayDTCs = isHistoryView
-    ? (historyScan.found_dtcs || []).map((dtc: any) => {
-        // Trouver la prédiction correspondante pour enrichir le DTC de base
+    ? (historyScan.scan_dtcs || historyScan.found_dtcs || []).map((dtc: any) => {
+        // Si c'est un scan_dtc, les données sont déjà dans dtc_details ou à plat
+        const codeValue = dtc.code || dtc.dtc?.code || dtc;
         const prediction = aiDiagnostics?.find(
-          (p: any) => p.code === (dtc.code || dtc),
+          (p: any) => p.code === codeValue,
         );
         return prediction ? {...dtc, ...prediction} : dtc;
       })
-    : route.params?.scan?.found_dtcs || currentDTCs;
+    : currentDTCs.length > 0
+      ? currentDTCs
+      : (route.params?.scan?.scan_dtcs || route.params?.scan?.found_dtcs || []);
   const displayVehicle = isHistoryView ? historyScan.vehicle : vehicleInfo;
 
   // Sécurisation des données véhicule (Backend snake_case vs Frontend camelCase)
   const vehicleBrand =
     historyScan?.vehicle?.brand ||
+    (route.params?.scan?.vehicle as any)?.brand ||
     (displayVehicle as any)?.brand ||
     (vehicleInfo as any)?.brand ||
     'Inconnue';
   const vehicleModel =
     historyScan?.vehicle?.model ||
+    (route.params?.scan?.vehicle as any)?.model ||
     (displayVehicle as any)?.model ||
     (vehicleInfo as any)?.model ||
     'Inconnu';
   const vehicleYear =
     historyScan?.vehicle?.year ||
+    (route.params?.scan?.vehicle as any)?.year ||
     (displayVehicle as any)?.year ||
     (vehicleInfo as any)?.year ||
     2020;
   const vehiclePlate =
     historyScan?.vehicle?.license_plate ||
+    (route.params?.scan?.vehicle as any)?.license_plate ||
     (displayVehicle as any)?.license_plate ||
     (historyScan?.vehicle as any)?.licensePlate ||
     (displayVehicle as any)?.licensePlate ||
     (vehicleInfo as any)?.licensePlate ||
+    (route.params?.scan?.vehicle as any)?.licensePlate ||
     'INCONNU';
+
+  const handleAIAnalysis = async () => {
+    const codes = isHistoryView
+      ? (historyScan.found_dtcs || []).map((d: any) => d.code || d)
+      : currentDTCs.map(d => d.code);
+
+    if (!codes || codes.length === 0) {
+      Alert.alert('Aucun code', 'Aucun code DTC à analyser.');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    const vehicleInfo = {
+      brand: vehicleBrand,
+      model: vehicleModel,
+      year: typeof vehicleYear === 'number' ? vehicleYear : parseInt(String(vehicleYear), 10),
+    };
+    const result = await apiService.analyzeDTCs(codes, vehicleInfo);
+    setIsAnalyzing(false);
+
+    if (result && result.diagnostics) {
+      setAiAnalysis(result);
+    } else {
+      Alert.alert('Erreur', "L'analyse IA n'a pas pu être effectuée. Vérifiez votre connexion.");
+    }
+  };
 
   const handleSaveScan = async () => {
     if (isSaving) {
@@ -105,8 +158,8 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
           vehicleInfo?.vin,
       },
       dtc_codes: isHistoryView
-        ? displayDTCs.map((d: any) => d.code)
-        : currentDTCs.map(d => d.code),
+        ? displayDTCs.map((d: any) => ({ code: d.code, status: d.status || 'confirmed' }))
+        : currentDTCs.map(d => ({ code: d.code, status: d.status || 'confirmed' })),
       notes: isHistoryView
         ? historyScan.notes
         : "Scan effectué via l'application mobile.",
@@ -115,16 +168,16 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
       is_completed: isCompleted,
       mileage_ecu: isHistoryView
         ? historyScan.mileage_ecu
-        : (useStore.getState() as any).mileage_ecu,
+        : route.params?.scan?.mileage_ecu,
       mileage_abs: isHistoryView
         ? historyScan.mileage_abs
-        : (useStore.getState() as any).mileage_abs,
+        : route.params?.scan?.mileage_abs,
       mileage_dashboard: isHistoryView
         ? historyScan.mileage_dashboard
-        : (useStore.getState() as any).mileage_dashboard,
+        : route.params?.scan?.mileage_dashboard,
       safety_check: isHistoryView
         ? historyScan.safety_check
-        : (useStore.getState() as any).safety_check,
+        : route.params?.scan?.safety_check,
     };
 
     // Important : On transmet l'ID si on est en train de modifier un scan existant
@@ -150,7 +203,7 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
           text: 'OK',
           onPress: () => {
             clearDTCs();
-            navigation.navigate('Home');
+            navigation.navigate(getHomeRoute());
           },
         },
       ]);
@@ -168,7 +221,7 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
             text: 'OK',
             onPress: () => {
               clearDTCs();
-              navigation.navigate('Home');
+              navigation.navigate(getHomeRoute());
             },
           },
         ],
@@ -188,6 +241,14 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
       return;
     }
 
+    if (!obdService.isConnected) {
+      Alert.alert(
+        'Non connecté',
+        "Vous devez être connecté à l'appareil OBD pour effacer les codes défauts.",
+      );
+      return;
+    }
+
     Alert.alert(
       'Confirmation',
       'Voulez-vous vraiment effacer les codes défauts du véhicule ? Cela éteindra le voyant moteur au tableau de bord.',
@@ -199,39 +260,62 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
           onPress: async () => {
             setIsClearing(true);
             const success = await obdService.clearAllDTCs();
-            setIsClearing(false);
 
             if (success) {
-              Alert.alert(
-                'Succès',
-                'Les codes ont été effacés du calculateur. Voulez-vous relancer un scan de vérification ?',
-                [
-                  {
-                    text: 'Plus tard',
-                    onPress: () => {
-                      clearDTCs();
-                      navigation.navigate('Home');
-                    },
-                  },
-                  {
-                    text: 'Vérifier maintenant',
-                    onPress: () => {
-                      clearDTCs();
-                      navigation.navigate('Scan', {
-                        autoRun: true,
-                        scanType: 'verification',
-                        vehicleData: {
-                          licensePlate: vehiclePlate,
-                          brand: vehicleBrand,
-                          model: vehicleModel,
-                          year: vehicleYear.toString(),
-                        },
-                      });
-                    },
-                  },
-                ],
-              );
+              // On informe le backend de l'effacement
+              const clearScanData: any = {
+                scan_type: 'VERIFICATION',
+                vehicle: {
+                  license_plate: vehiclePlate,
+                  brand: vehicleBrand,
+                  model: vehicleModel,
+                  year: vehicleYear,
+                },
+                dtc_codes: [],
+                notes: 'Codes défauts effacés avec succès.',
+              };
+              await apiService.saveScan(clearScanData);
+
+              // Vérifier la connexion OBD avant de lancer le scan de vérification
+              // L'effacement des codes peut provoquer une déconnexion temporaire
+              if (!obdService.isConnected) {
+                // Tentative de reconnexion automatique (max 3 essais, 3s entre chaque)
+                let reconnected = false;
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                  console.log(`[ResultsScreen] Reconnexion OBD après effacement (tentative ${attempt}/3)...`);
+                  reconnected = await obdService.reconnect();
+                  if (reconnected) break;
+                  if (attempt < 3) {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                  }
+                }
+
+                if (!reconnected) {
+                  setIsClearing(false);
+                  Alert.alert(
+                    'Reconnexion impossible',
+                    "Les codes ont été effacés mais la reconnexion à l'équipement a échoué. Veuillez relancer le scan manuellement depuis l'écran principal.",
+                    [{text: 'OK', onPress: () => { clearDTCs(); navigation.navigate(getHomeRoute()); }}],
+                  );
+                  return;
+                }
+              }
+
+              setIsClearing(false);
+              // Relance automatique du scan de vérification
+              clearDTCs();
+              navigation.navigate('Scan', {
+                autoRun: true,
+                scanType: 'verification',
+                vehicleData: {
+                  licensePlate: vehiclePlate,
+                  brand: vehicleBrand,
+                  model: vehicleModel,
+                  year: vehicleYear.toString(),
+                },
+              });
             } else {
+              setIsClearing(false);
               Alert.alert(
                 'Échec',
                 "Le véhicule n'a pas pu effacer les codes. Vérifiez que le moteur est éteint et le contact mis.",
@@ -243,17 +327,19 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
     );
   };
 
-  const renderDTCItem = (dtc: any) => {
+  const renderDTCItem = (dtc: any, index: number) => {
     if (!dtc) {
       return null;
     }
     const dtcData = typeof dtc === 'string' ? {code: dtc} : dtc;
     return (
       <DTCCard
-        key={typeof dtc === 'string' ? dtc : dtc.code}
+        key={`${typeof dtc === 'string' ? dtc : dtc.code}-${index}`}
         dtc={dtc}
         isHistoryView={isHistoryView}
-        historyScan={historyScan}>
+        historyScan={historyScan}
+        vehicleBrand={vehicleBrand}
+        vehicleModel={vehicleModel}>
         {!!(
           dtcData.estimatedLaborCost ||
           dtcData.localPartPrice ||
@@ -314,7 +400,7 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
               <Text style={styles.dataName}>{data.name}</Text>
               <Text style={styles.dataValue}>
                 {typeof data.value === 'number'
-                  ? data.value.toFixed(1)
+                  ? data.value.toFixed(3)
                   : String(data.value)}{' '}
                 {String(data.unit)}
               </Text>
@@ -337,7 +423,7 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
       />
 
       {displayDTCs.length > 0 ? (
-        displayDTCs.map((dtc: any) => renderDTCItem(dtc))
+        displayDTCs.map((dtc: any, idx: number) => renderDTCItem(dtc, idx))
       ) : (
         <Card style={styles.successCard}>
           <Text style={styles.successText}>✅ Aucun code défaut !</Text>
@@ -355,6 +441,119 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
           style={styles.clearButton}>
           Effacer les codes défauts
         </Button>
+      )}
+
+      {displayDTCs.length > 0 && (
+        <Button
+          mode="contained"
+          icon="robot"
+          loading={isAnalyzing}
+          disabled={isAnalyzing}
+          onPress={handleAIAnalysis}
+          style={styles.aiButton}>
+          {/* eslint-disable-next-line react-native/no-inline-styles */}
+          <Text style={{color: '#fff'}}>
+            {isAnalyzing ? 'Analyse en cours...' : '🤖 Analyse IA Approfondie'}
+          </Text>
+        </Button>
+      )}
+
+      {isAnalyzing && (
+        <View style={styles.analyzingBox}>
+          <ActivityIndicator size="large" color="#1565C0" />
+          <Text style={styles.analyzingText}>Analyse IA en cours — DB + Base locale + Web...</Text>
+        </View>
+      )}
+
+      {aiAnalysis && (
+        <Card style={styles.aiCard}>
+          <Card.Title
+            title="🤖 Analyse IA Approfondie"
+            titleStyle={styles.aiCardTitle}
+          />
+          <Card.Content>
+            {aiAnalysis.summary?.verdict ? (
+              <View style={styles.verdictBox}>
+                <Text style={styles.verdictText}>{aiAnalysis.summary.verdict}</Text>
+                <Text style={styles.engineVersion}>{aiAnalysis.summary.engine_version}</Text>
+              </View>
+            ) : null}
+
+            {(aiAnalysis.diagnostics || []).map((diag: any, idx: number) => (
+              <View key={idx} style={styles.aiDiagBlock}>
+                <View style={styles.aiDiagHeader}>
+                  <Text style={[
+                    styles.aiDiagCode,
+                    {color: diag.severity === 'critical' ? '#B71C1C' : diag.severity === 'high' ? '#E65100' : '#F57F17'},
+                  ]}>
+                    {diag.code}
+                  </Text>
+                  {diag.certitude ? (
+                    <Text style={styles.certitudeBadge}>Certitude : {diag.certitude}%</Text>
+                  ) : null}
+                </View>
+
+                {diag.interpretation ? (
+                  <View style={styles.interpretationBox}>
+                    <Text style={styles.interpretationText}>{diag.interpretation}</Text>
+                  </View>
+                ) : null}
+
+                {diag.possibleCauses?.length > 0 && (
+                  <View style={styles.aiSection}>
+                    <Text style={styles.aiSectionTitle}>🔍 Causes probables</Text>
+                    {diag.possibleCauses.map((c: string, i: number) => (
+                      <Text key={i} style={styles.aiListItem}>{i + 1}. {c}</Text>
+                    ))}
+                  </View>
+                )}
+
+                {diag.suggestedFixes?.length > 0 && (
+                  <View style={styles.aiSection}>
+                    <Text style={styles.aiSectionTitle}>🔧 Solutions recommandées</Text>
+                    {diag.suggestedFixes.map((s: string, i: number) => (
+                      <Text
+                        key={i}
+                        style={[
+                          styles.aiListItem,
+                          i === 0 && diag.severity === 'critical' ? styles.firstSolutionCritical : null,
+                        ]}>
+                        {i + 1}. {s}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+
+                {(diag.estimatedLaborCost > 0 || diag.localPartPrice > 0) && (
+                  <View style={styles.aiCostRow}>
+                    {diag.estimatedLaborCost > 0 && (
+                      <Text style={styles.aiCostText}>🛠 MO : {diag.estimatedLaborCost.toLocaleString()} FCFA</Text>
+                    )}
+                    {diag.localPartPrice > 0 && (
+                      <Text style={styles.aiCostText}>🔩 Pièce : {diag.localPartPrice.toLocaleString()} FCFA</Text>
+                    )}
+                  </View>
+                )}
+
+                {diag.warnings ? (
+                  <View style={styles.aiWarningBox}>
+                    <Text style={styles.aiWarningText}>⚠️ {diag.warnings}</Text>
+                  </View>
+                ) : null}
+
+                {idx < (aiAnalysis.diagnostics.length - 1) && <Divider style={styles.aiDivider} />}
+              </View>
+            ))}
+
+            {aiAnalysis.summary?.total_estimated_labor > 0 && (
+              <View style={styles.aiTotalBox}>
+                <Text style={styles.aiTotalText}>
+                  💰 Coût total estimé MO : {aiAnalysis.summary.total_estimated_labor.toLocaleString()} FCFA
+                </Text>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
       )}
 
       {!isHistoryView && renderOBDData()}
@@ -416,6 +615,16 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
 
       {isHistoryView && (
         <Button
+          mode="contained-tonal"
+          icon="share-variant"
+          onPress={() => navigation.navigate('SendResults', {scan: historyScan})}
+          style={styles.shareButton}>
+          <Text>Envoyer au client</Text>
+        </Button>
+      )}
+
+      {isHistoryView && (
+        <Button
           mode="contained"
           onPress={() => navigation.goBack()}
           style={initialIsCompleted ? styles.saveButton : styles.backButton}>
@@ -428,7 +637,7 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
         mode="text"
         onPress={() => {
           clearDTCs();
-          navigation.navigate('Home');
+          navigation.navigate(getHomeRoute());
         }}
         style={styles.cancelButton}>
         {/* eslint-disable-next-line react-native/no-inline-styles */}
@@ -542,6 +751,142 @@ const styles = StyleSheet.create({
     borderColor: '#D32F2F',
     borderWidth: 1.5,
     borderRadius: 8,
+  },
+  aiButton: {
+    marginVertical: 10,
+    backgroundColor: '#1565C0',
+    borderRadius: 8,
+  },
+  analyzingBox: {
+    alignItems: 'center',
+    padding: 16,
+    gap: 8,
+  },
+  analyzingText: {
+    fontSize: 13,
+    color: '#1565C0',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  aiCard: {
+    marginTop: 16,
+    marginBottom: 8,
+    elevation: 4,
+    backgroundColor: '#0D1B2A',
+    borderRadius: 12,
+  },
+  aiCardTitle: {
+    color: '#90CAF9',
+    fontWeight: 'bold',
+  },
+  verdictBox: {
+    backgroundColor: '#1A237E',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  verdictText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  engineVersion: {
+    color: '#90CAF9',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  aiDiagBlock: {
+    marginVertical: 8,
+  },
+  aiDiagHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  aiDiagCode: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  certitudeBadge: {
+    fontSize: 12,
+    color: '#A5D6A7',
+    fontWeight: '600',
+  },
+  interpretationBox: {
+    backgroundColor: '#1A2744',
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#42A5F5',
+  },
+  interpretationText: {
+    color: '#E3F2FD',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  aiSection: {
+    marginTop: 8,
+  },
+  aiSectionTitle: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#90CAF9',
+    marginBottom: 4,
+  },
+  aiListItem: {
+    fontSize: 13,
+    color: '#CFD8DC',
+    lineHeight: 22,
+    marginLeft: 4,
+  },
+  firstSolutionCritical: {
+    color: '#EF9A9A',
+    fontWeight: 'bold',
+  },
+  aiCostRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+    flexWrap: 'wrap',
+  },
+  aiCostText: {
+    fontSize: 12,
+    color: '#A5D6A7',
+    fontWeight: '600',
+  },
+  aiWarningBox: {
+    backgroundColor: '#3E2723',
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 8,
+  },
+  aiWarningText: {
+    color: '#FFCC80',
+    fontSize: 12,
+  },
+  aiDivider: {
+    backgroundColor: '#263238',
+    marginVertical: 10,
+  },
+  aiTotalBox: {
+    backgroundColor: '#1B5E20',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 12,
+  },
+  aiTotalText: {
+    color: '#C8E6C9',
+    fontWeight: 'bold',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  shareButton: {
+    marginTop: 8,
+    marginHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#E3F2FD',
   },
   Chip: {
     borderRadius: 12,
