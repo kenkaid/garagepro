@@ -444,7 +444,7 @@ class OBDService {
       const dtcMap = new Map<string, DTCCode>();
       const addCode = async (code: string, status: 'confirmed' | 'pending' | 'permanent') => {
         if (!code) return;
-        
+
         const existing = dtcMap.get(code);
         if (existing) {
           // Si déjà présent, on met à jour le statut selon la priorité
@@ -591,6 +591,287 @@ class OBDService {
           unit: '%',
           rawData: '41 2F A6',
         },
+        '04': {
+          timestamp: Date.now(),
+          pid: '04',
+          name: 'Charge moteur',
+          value: Math.random() < 0.2 ? 45 : (15 + Math.random() * 20), // Simule parfois une charge haute au ralenti
+          unit: '%',
+          rawData: '41 04 32',
+        },
+        '0E': {
+          timestamp: Date.now(),
+          pid: '0E',
+          name: 'Avance à l\'allumage',
+          value: 10 + Math.random() * 10,
+          unit: '°',
+          rawData: '41 0E 7D',
+        },
+        '42': {
+          timestamp: Date.now(),
+          pid: '42',
+          name: 'Tension module',
+          value: 13.8 + Math.random() * 0.4,
+          unit: 'V',
+          rawData: '41 42 35 E8',
+        },
+        'BATTERY': {
+          timestamp: Date.now(),
+          pid: 'BATTERY',
+          name: 'Tension batterie',
+          value: 13.6 + Math.random() * 0.8,
+          unit: 'V',
+          rawData: '13.6V',
+        },
+        '5C': {
+          timestamp: Date.now(),
+          pid: '5C',
+          name: 'Température huile',
+          value: 90 + Math.random() * 20, // 90-110°C
+          unit: '°C',
+          rawData: '41 5C 82',
+        },
+        '07': {
+          timestamp: Date.now(),
+          pid: '07',
+          name: 'Correction carburant',
+          value: (Math.random() - 0.5) * 10,
+          unit: '%',
+          rawData: '41 07 80',
+        },
+        // --- PIDs supplémentaires ---
+        '10': {
+          timestamp: Date.now(),
+          pid: '10',
+          name: 'Débit air (MAF)',
+          value: 2 + Math.random() * 8, // 2-10 g/s au ralenti
+          unit: 'g/s',
+          rawData: '41 10 00 C8',
+        },
+        '0B': {
+          timestamp: Date.now(),
+          pid: '0B',
+          name: 'Pression collecteur (MAP)',
+          value: 30 + Math.random() * 20, // 30-50 kPa au ralenti
+          unit: 'kPa',
+          rawData: '41 0B 28',
+        },
+        '33': {
+          timestamp: Date.now(),
+          pid: '33',
+          name: 'Pression atmosphérique',
+          value: 101 + Math.random() * 2,
+          unit: 'kPa',
+          rawData: '41 33 65',
+        },
+        '43': {
+          timestamp: Date.now(),
+          pid: '43',
+          name: 'Charge absolue moteur',
+          value: 20 + Math.random() * 15,
+          unit: '%',
+          rawData: '41 43 00 80',
+        },
+        '44': {
+          timestamp: Date.now(),
+          pid: '44',
+          name: 'Ratio air/carburant',
+          value: 14.5 + (Math.random() - 0.5) * 0.4,
+          unit: 'λ',
+          rawData: '41 44 80 00',
+        },
+        '46': {
+          timestamp: Date.now(),
+          pid: '46',
+          name: 'Température ambiante',
+          value: 28 + Math.random() * 7, // 28-35°C (Côte d'Ivoire)
+          unit: '°C',
+          rawData: '41 46 44',
+        },
+        '49': {
+          timestamp: Date.now(),
+          pid: '49',
+          name: 'Accélérateur relatif',
+          value: Math.random() * 10,
+          unit: '%',
+          rawData: '41 49 00',
+        },
+        '4C': {
+          timestamp: Date.now(),
+          pid: '4C',
+          name: 'Papillon commandé',
+          value: 10 + Math.random() * 5,
+          unit: '%',
+          rawData: '41 4C 1A',
+        },
+        '5E': {
+          timestamp: Date.now(),
+          pid: '5E',
+          name: 'Consommation carburant',
+          value: 0.5 + Math.random() * 1.5, // L/h au ralenti
+          unit: 'L/h',
+          rawData: '41 5E 00 32',
+        },
+        '62': {
+          timestamp: Date.now(),
+          pid: '62',
+          name: 'Couple moteur réel',
+          value: 10 + Math.random() * 20,
+          unit: '%',
+          rawData: '41 62 5A',
+        },
+        '63': {
+          timestamp: Date.now(),
+          pid: '63',
+          name: 'Couple moteur référence',
+          value: 150 + Math.random() * 50,
+          unit: 'Nm',
+          rawData: '41 63 00 C8',
+        },
+        '14': {
+          timestamp: Date.now(),
+          pid: '14',
+          name: 'Sonde O2 amont (V)',
+          value: 0.1 + Math.random() * 0.8,
+          unit: 'V',
+          rawData: '41 14 80 FF',
+        },
+        '15': {
+          timestamp: Date.now(),
+          pid: '15',
+          name: 'Sonde O2 aval (V)',
+          value: 0.6 + Math.random() * 0.2,
+          unit: 'V',
+          rawData: '41 15 90 FF',
+        },
+        '1F': {
+          timestamp: Date.now(),
+          pid: '1F',
+          name: 'Durée depuis démarrage',
+          value: Math.floor(Math.random() * 3600),
+          unit: 's',
+          rawData: '41 1F 00 E1',
+        },
+        '21': {
+          timestamp: Date.now(),
+          pid: '21',
+          name: 'Distance avec MIL allumé',
+          value: Math.random() < 0.3 ? Math.floor(Math.random() * 500) : 0,
+          unit: 'km',
+          rawData: '41 21 00 00',
+        },
+        '31': {
+          timestamp: Date.now(),
+          pid: '31',
+          name: 'Distance depuis RAZ DTC',
+          value: Math.floor(Math.random() * 10000),
+          unit: 'km',
+          rawData: '41 31 03 E8',
+        },
+        '45': {
+          timestamp: Date.now(),
+          pid: '45',
+          name: 'Position papillon relatif',
+          value: Math.random() * 15,
+          unit: '%',
+          rawData: '41 45 00',
+        },
+        '47': {
+          timestamp: Date.now(),
+          pid: '47',
+          name: 'Papillon absolu B',
+          value: 10 + Math.random() * 5,
+          unit: '%',
+          rawData: '41 47 1A',
+        },
+        '4D': {
+          timestamp: Date.now(),
+          pid: '4D',
+          name: 'Durée MIL allumé',
+          value: Math.random() < 0.3 ? Math.floor(Math.random() * 120) : 0,
+          unit: 'min',
+          rawData: '41 4D 00 00',
+        },
+        '4E': {
+          timestamp: Date.now(),
+          pid: '4E',
+          name: 'Durée depuis RAZ DTC',
+          value: Math.floor(Math.random() * 9999),
+          unit: 'min',
+          rawData: '41 4E 27 0F',
+        },
+        '5A': {
+          timestamp: Date.now(),
+          pid: '5A',
+          name: 'Accélérateur pédale D',
+          value: Math.random() * 10,
+          unit: '%',
+          rawData: '41 5A 00',
+        },
+        '5B': {
+          timestamp: Date.now(),
+          pid: '5B',
+          name: 'Charge batterie hybride',
+          value: 60 + Math.random() * 30,
+          unit: '%',
+          rawData: '41 5B 99',
+        },
+        '67': {
+          timestamp: Date.now(),
+          pid: '67',
+          name: 'Température liquide 2',
+          value: 85 + Math.random() * 10,
+          unit: '°C',
+          rawData: '41 67 01 7D',
+        },
+        '68': {
+          timestamp: Date.now(),
+          pid: '68',
+          name: 'Pression admission abs.',
+          value: 30 + Math.random() * 20,
+          unit: 'kPa',
+          rawData: '41 68 01 28',
+        },
+        '6B': {
+          timestamp: Date.now(),
+          pid: '6B',
+          name: 'Température gaz échapp.',
+          value: 400 + Math.random() * 200, // 400-600°C
+          unit: '°C',
+          rawData: '41 6B 01 A0 00',
+        },
+        '6D': {
+          timestamp: Date.now(),
+          pid: '6D',
+          name: 'Pression carburant inj.',
+          value: 350 + Math.random() * 50, // kPa
+          unit: 'kPa',
+          rawData: '41 6D 01 6E',
+        },
+        '6F': {
+          timestamp: Date.now(),
+          pid: '6F',
+          name: 'Pression turbo commandée',
+          value: 100 + Math.random() * 50,
+          unit: 'kPa',
+          rawData: '41 6F 01 00 00',
+        },
+        '70': {
+          timestamp: Date.now(),
+          pid: '70',
+          name: 'Pression turbo réelle',
+          value: 100 + Math.random() * 50,
+          unit: 'kPa',
+          rawData: '41 70 01 00 00',
+        },
+        '73': {
+          timestamp: Date.now(),
+          pid: '73',
+          name: 'Pression huile moteur',
+          value: 200 + Math.random() * 200, // 200-400 kPa
+          unit: 'kPa',
+          rawData: '41 73 01 C8',
+        },
       };
 
       return mockValues[pid.toUpperCase()] || null;
@@ -633,9 +914,205 @@ class OBDService {
         unit: '%',
         parse: (b) => (b[0] * 100) / 255,
       },
+      '04': {
+        name: 'Charge moteur',
+        unit: '%',
+        parse: (b) => (b[0] * 100) / 255,
+      },
+      '06': {
+        name: 'Correction inject. court',
+        unit: '%',
+        parse: (b) => ((b[0] - 128) * 100) / 128,
+      },
+      '07': {
+        name: 'Correction carburant',
+        unit: '%',
+        parse: (b) => ((b[0] - 128) * 100) / 128,
+      },
+      '5C': {
+        name: 'Température huile',
+        unit: '°C',
+        parse: (b) => b[0] - 40,
+      },
+      '0E': {
+        name: 'Avance à l\'allumage',
+        unit: '°',
+        parse: (b) => (b[0] - 128) / 2,
+      },
+      '42': {
+        name: 'Tension module',
+        unit: 'V',
+        parse: (b) => (b[0] * 256 + b[1]) / 1000,
+      },
+      // --- PIDs supplémentaires ---
+      '10': {
+        name: 'Débit air (MAF)',
+        unit: 'g/s',
+        parse: (b) => (b[0] * 256 + b[1]) / 100,
+      },
+      '0B': {
+        name: 'Pression collecteur (MAP)',
+        unit: 'kPa',
+        parse: (b) => b[0],
+      },
+      '33': {
+        name: 'Pression atmosphérique',
+        unit: 'kPa',
+        parse: (b) => b[0],
+      },
+      '43': {
+        name: 'Charge absolue moteur',
+        unit: '%',
+        parse: (b) => (b[0] * 256 + b[1]) * 100 / 65535,
+      },
+      '44': {
+        name: 'Ratio air/carburant',
+        unit: 'λ',
+        parse: (b) => (b[0] * 256 + b[1]) * 0.0000305176,
+      },
+      '46': {
+        name: 'Température ambiante',
+        unit: '°C',
+        parse: (b) => b[0] - 40,
+      },
+      '49': {
+        name: 'Accélérateur relatif',
+        unit: '%',
+        parse: (b) => (b[0] * 100) / 255,
+      },
+      '4C': {
+        name: 'Papillon commandé',
+        unit: '%',
+        parse: (b) => (b[0] * 100) / 255,
+      },
+      '5E': {
+        name: 'Consommation carburant',
+        unit: 'L/h',
+        parse: (b) => (b[0] * 256 + b[1]) * 0.05,
+      },
+      '62': {
+        name: 'Couple moteur réel',
+        unit: '%',
+        parse: (b) => b[0] - 125,
+      },
+      '63': {
+        name: 'Couple moteur référence',
+        unit: 'Nm',
+        parse: (b) => b[0] * 256 + b[1],
+      },
+      '14': {
+        name: 'Sonde O2 amont (V)',
+        unit: 'V',
+        parse: (b) => b[0] / 200,
+      },
+      '15': {
+        name: 'Sonde O2 aval (V)',
+        unit: 'V',
+        parse: (b) => b[0] / 200,
+      },
+      '1F': {
+        name: 'Durée depuis démarrage',
+        unit: 's',
+        parse: (b) => b[0] * 256 + b[1],
+      },
+      '21': {
+        name: 'Distance avec MIL allumé',
+        unit: 'km',
+        parse: (b) => b[0] * 256 + b[1],
+      },
+      '31': {
+        name: 'Distance depuis RAZ DTC',
+        unit: 'km',
+        parse: (b) => b[0] * 256 + b[1],
+      },
+      '45': {
+        name: 'Position papillon relatif',
+        unit: '%',
+        parse: (b) => (b[0] * 100) / 255,
+      },
+      '47': {
+        name: 'Papillon absolu B',
+        unit: '%',
+        parse: (b) => (b[0] * 100) / 255,
+      },
+      '4D': {
+        name: 'Durée MIL allumé',
+        unit: 'min',
+        parse: (b) => b[0] * 256 + b[1],
+      },
+      '4E': {
+        name: 'Durée depuis RAZ DTC',
+        unit: 'min',
+        parse: (b) => b[0] * 256 + b[1],
+      },
+      '5A': {
+        name: 'Accélérateur pédale D',
+        unit: '%',
+        parse: (b) => (b[0] * 100) / 255,
+      },
+      '5B': {
+        name: 'Charge batterie hybride',
+        unit: '%',
+        parse: (b) => (b[0] * 100) / 255,
+      },
+      '67': {
+        name: 'Température liquide 2',
+        unit: '°C',
+        parse: (b) => b[1] - 40,
+      },
+      '68': {
+        name: 'Pression admission abs.',
+        unit: 'kPa',
+        parse: (b) => b[1] * 256 + b[2],
+      },
+      '6B': {
+        name: 'Température gaz échapp.',
+        unit: '°C',
+        parse: (b) => ((b[1] * 256 + b[2]) / 10) - 40,
+      },
+      '6D': {
+        name: 'Pression carburant inj.',
+        unit: 'kPa',
+        parse: (b) => ((b[1] * 256 + b[2]) * 10),
+      },
+      '6F': {
+        name: 'Pression turbo commandée',
+        unit: 'kPa',
+        parse: (b) => b[1] * 256 + b[2],
+      },
+      '70': {
+        name: 'Pression turbo réelle',
+        unit: 'kPa',
+        parse: (b) => b[1] * 256 + b[2],
+      },
+      '73': {
+        name: 'Pression huile moteur',
+        unit: 'kPa',
+        parse: (b) => b[1] * 256 + b[2],
+      },
     };
 
     const meta = pidMeta[pid.toUpperCase()];
+
+    // Cas spécial pour la batterie (AT RV sur ELM327)
+    if (pid.toUpperCase() === 'BATTERY') {
+      try {
+        const response = await this.sendCommand('AT RV', 2000);
+        // La réponse est souvent "12.6V" ou "14.2V"
+        const value = parseFloat(response.replace(/[^\d.]/g, ''));
+        return {
+          timestamp: Date.now(),
+          pid: 'battery',
+          name: 'Tension batterie',
+          value,
+          unit: 'V',
+          rawData: response,
+        };
+      } catch (e) {
+        return null;
+      }
+    }
+
     if (!meta) {
       return null;
     }
@@ -681,8 +1158,42 @@ class OBDService {
     }
   }
 
+  /**
+   * Lit uniquement les PIDs critiques (RPM, vitesse, températures, batterie, carburant)
+   * Cycle rapide ~500ms — utilisé pour l'affichage temps réel fluide
+   */
+  async readFastPIDs(): Promise<OBDData[]> {
+    const pids = ['0C', '0D', '05', '5C', '11', '2F', '04', '42', 'BATTERY', '0F', '06', '07', '0E'];
+    const results: OBDData[] = [];
+    for (const pid of pids) {
+      const data = await this.readPID(pid);
+      if (data) results.push(data);
+      await new Promise(resolve => setTimeout(resolve, MOCK_MODE ? 30 : 80));
+    }
+    return results;
+  }
+
   async readCommonPIDs(): Promise<OBDData[]> {
-    const pids = ['0C', '0D', '05', '0F', '11', '2F'];
+    const pids = [
+      // Moteur de base
+      '0C', '04', '05', '0E', '10', '0B',
+      // Vitesse & papillon
+      '0D', '11', '45', '47', '49', '4C',
+      // Températures
+      '0F', '5C', '46', '67', '6B',
+      // Carburant & injection
+      '2F', '06', '07', '14', '15', '44', '5E', '6D',
+      // Électrique & tension
+      '42', 'BATTERY',
+      // Pression
+      '33', '68', '6F', '70', '73',
+      // Couple & charge
+      '43', '62', '63',
+      // Diagnostics temporels
+      '1F', '21', '31', '4D', '4E',
+      // Hybride
+      '5B', '5A',
+    ];
     const results: OBDData[] = [];
 
     for (const pid of pids) {
@@ -750,7 +1261,60 @@ class OBDService {
   }
 
   async readVIN(): Promise<string | null> {
-    return MOCK_MODE ? 'VF1LM1A0H12345678' : null;
+    if (MOCK_MODE) {
+      return 'VF1LM1A0H12345678';
+    }
+
+    if (!this.isConnected) {
+      return null;
+    }
+
+    try {
+      // Commande '09 02' pour demander le VIN (Mode 9, PID 02)
+      const response = await this.sendCommand('0902');
+
+      if (!response || response.includes('NO DATA') || response.includes('ERROR')) {
+        return null;
+      }
+
+      // Nettoyage de la réponse (suppression des headers CAN, index de lignes, espaces)
+      // La réponse typique CAN multi-ligne ressemble à :
+      // 0: 49 02 01 56 46 31
+      // 1: 4C 4D 31 41 30 48 31
+      // 2: 32 33 34 35 36 37 38
+      const hexData = response
+        .split(/\s+/)
+        .filter(part => {
+          // On ignore les index de ligne (0:, 1:) et les headers CAN (7E8)
+          return !part.includes(':') && part.length === 2;
+        })
+        .join('');
+
+      // On cherche l'identifiant de réponse '4902' (0x40 + 0x09 pour le mode, 0x02 pour le PID)
+      const startIndex = hexData.indexOf('4902');
+      if (startIndex === -1) {
+        return null;
+      }
+
+      // Les données VIN commencent après '4902XX' (où XX est le nombre de paquets ou index)
+      // En standard ISO 15765-4, après 4902 il y a souvent un octet 01 (index)
+      const vinHex = hexData.substring(startIndex + 6); // On saute 49 02 01
+
+      // Conversion hexadécimal vers ASCII (17 caractères pour le VIN)
+      let vin = '';
+      for (let i = 0; i < vinHex.length && vin.length < 17; i += 2) {
+        const charCode = parseInt(vinHex.substring(i, i + 2), 16);
+        if (charCode >= 32 && charCode <= 126) {
+          vin += String.fromCharCode(charCode);
+        }
+      }
+
+      console.log(`[OBDService] VIN décodé : ${vin}`);
+      return vin.length >= 11 ? vin : null; // Un VIN valide fait 17 car, mais on accepte > 11 pour les vieux formats
+    } catch (e) {
+      console.error('[OBDService] Erreur lors de la lecture du VIN:', e);
+      return null;
+    }
   }
 
   async disconnect(): Promise<void> {

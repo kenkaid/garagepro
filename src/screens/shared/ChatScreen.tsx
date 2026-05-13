@@ -13,7 +13,8 @@ import {
   Divider,
   ActivityIndicator,
 } from 'react-native-paper';
-import {useFocusEffect} from '@react-navigation/native';
+import * as ReactNavigation from '@react-navigation/native';
+const { useFocusEffect } = ReactNavigation;
 import {apiService} from '../../services/apiService';
 import {Colors} from '../../styles/theme';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';

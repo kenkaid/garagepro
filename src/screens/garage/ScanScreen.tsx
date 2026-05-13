@@ -79,7 +79,8 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [year, setYear] = useState('');
-  const [showLicenseInput, setShowLicenseInput] = useState(true);
+  const [vin, setVin] = useState('');
+  const [showLicenseInput, setShowLicenseInput] = useState(false);
   const [vehicleStats, setVehicleStats] = useState<any>(null);
   const [vehicleHistory, setVehicleHistory] = useState<any[]>([]);
 
@@ -102,7 +103,13 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
     user,
     vehicleInfo,
     scanHistory,
+    isTestMode,
   } = useStore();
+
+  useEffect(() => {
+    // Sincroniser le mode mock de l'obdService avec le store au chargement
+    obdService.setMockMode(isTestMode);
+  }, [isTestMode]);
 
   useEffect(() => {
     checkPermissions();
@@ -141,15 +148,19 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
       setBrand('');
       setModel('');
       setYear('');
-      setShowLicenseInput(true);
+      setShowLicenseInput(false);
     } else {
       setLicensePlate(vehicleInfo.licensePlate || '');
       setBrand(vehicleInfo.brand || '');
       setModel(vehicleInfo.model || '');
       setYear(vehicleInfo.year?.toString() || '');
-      setShowLicenseInput(false);
+      
+      // Si skipConnect est passé, on montre l'écran final de lancement si on a les infos, 
+      // sinon on garde le formulaire de saisie de plaque
+      const hasVehicleData = (vehicleInfo.brand && vehicleInfo.model) || vehicleInfo.licensePlate;
+      setShowLicenseInput(route.params?.skipConnect && hasVehicleData ? false : true);
     }
-  }, [vehicleInfo.connected]);
+  }, [vehicleInfo.connected, route.params?.skipConnect]);
 
   const loadVehicleModels = async () => {
     const models = await apiService.getVehicleModels();
@@ -288,8 +299,68 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
         console.log('Protocole auto-détecté');
       }
 
-      Alert.alert(`Connecté à ${device.name}`);
-      // On ne navigue pas, on reste sur l'écran pour lancer le diagnostic complet
+      // Tentative de lecture automatique du VIN
+      try {
+        const detectedVin = await obdService.readVIN();
+        if (detectedVin) {
+          setVin(detectedVin);
+          setVehicleInfo({vin: detectedVin});
+
+          // Identification automatique de la marque via WMI (3 premiers car.)
+          const wmi = detectedVin.substring(0, 3).toUpperCase();
+          const wmiToBrand: {[key: string]: string} = {
+            'VF1': 'Renault', 'VF3': 'Peugeot', 'VF7': 'Citroën',
+            'WVW': 'Volkswagen', 'WVG': 'Volkswagen', 'WV2': 'Volkswagen',
+            'WBA': 'BMW', 'WBS': 'BMW', 'WDB': 'Mercedes-Benz', 'WDD': 'Mercedes-Benz',
+            'VF3': 'Peugeot', 'ZFA': 'Fiat', 'TSM': 'Suzuki',
+            'JT1': 'Toyota', 'JTD': 'Toyota', 'JT6': 'Toyota', 'JTM': 'Toyota',
+            'JMB': 'Mitsubishi', 'JA3': 'Mitsubishi', 'JM0': 'Mazda',
+            'JN1': 'Nissan', 'JN8': 'Nissan', 'JHM': 'Honda', 'JHL': 'Honda',
+            'KMH': 'Hyundai', 'KNA': 'Kia', 'KND': 'Kia', 'KNM': 'Samsung',
+            '1FM': 'Ford', '1FT': 'Ford', '1FC': 'Ford', '2FM': 'Ford',
+            '1GC': 'Chevrolet', '1GN': 'Chevrolet', '1G1': 'Chevrolet',
+            'SAL': 'Land Rover', 'SARR': 'Range Rover', 'SCC': 'Lotus',
+            'UU1': 'Dacia', 'W0L': 'Opel', 'W0V': 'Vauxhall',
+            'LSY': 'Yutong', 'LHG': 'Guangzhou', 'LZE': 'Isuzu China',
+          };
+
+          const detectedBrand = wmiToBrand[wmi] || wmiToBrand[wmi.substring(0, 2)];
+          if (detectedBrand && !brand) {
+            setBrand(detectedBrand);
+            // Charger les modèles pour cette marque
+            const models = vehicleModels
+              .filter(m => m.brand.toLowerCase() === detectedBrand.toLowerCase())
+              .map(m => m.model);
+            setFilteredModels([...new Set(models)]);
+          }
+
+          // Extraction de l'année (10ème caractère du VIN standard)
+          const yearCode = detectedVin.charAt(9).toUpperCase();
+          const yearCodes: {[key: string]: number} = {
+            'A': 2010, 'B': 2011, 'C': 2012, 'D': 2013, 'E': 2014, 'F': 2015,
+            'G': 2016, 'H': 2017, 'J': 2018, 'K': 2019, 'L': 2020, 'M': 2021,
+            'N': 2022, 'P': 2023, 'R': 2024, 'S': 2025,
+            'Y': 2000, '1': 2001, '2': 2002, '3': 2003, '4': 2004, '5': 2005,
+            '6': 2006, '7': 2007, '8': 2008, '9': 2009,
+          };
+          if (yearCodes[yearCode] && !year) {
+            setYear(yearCodes[yearCode].toString());
+          }
+
+          Alert.alert(
+            'Véhicule identifié',
+            `VIN : ${detectedVin}\nMarque détectée : ${detectedBrand || 'Inconnue'}\n\nVeuillez maintenant compléter les informations du véhicule.`,
+          );
+        } else {
+          Alert.alert(`Connecté à ${device.name}`, 'Veuillez maintenant compléter les informations du véhicule.');
+        }
+      } catch (vinErr) {
+        console.error('Erreur lecture VIN:', vinErr);
+        Alert.alert(`Connecté à ${device.name}`, 'Veuillez maintenant compléter les informations du véhicule.');
+      }
+
+      // Afficher le formulaire après la connexion réussie
+      setShowLicenseInput(true);
     } else {
       Alert.alert('Impossible de se connecter');
     }
@@ -351,6 +422,7 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
           brand,
           model,
           year: parseInt(year, 10) || undefined,
+          vin: vin || (vehicleInfo as any)?.vin,
         },
         // @ts-ignore
         dtcs: detectedDtcs,
@@ -380,10 +452,10 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
         `${detectedDtcs.length} code(s) défaut trouvé(s). ${obdData.length} paramètres lus.`,
       );
 
-      const target = (route.params?.scanType === 'EXPERT' || scanType === 'EXPERT') 
-        ? (user?.user_type === 'INDIVIDUAL' ? 'ExpertResults' : 'ExpertResults') 
+      const target = (route.params?.scanType === 'EXPERT' || scanType === 'EXPERT')
+        ? (user?.user_type === 'INDIVIDUAL' ? 'ExpertResults' : 'ExpertResults')
         : 'Results';
-      
+
       // Note: ExpertResults est redirigé vers l'écran individual via le Navigator pour les particuliers
       navigation.navigate(target, {
         scan: (savedScan || scanSession) as any,
@@ -422,10 +494,53 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
   // @ts-ignore
   return (
     <View style={styles.container}>
-      {showLicenseInput && (
+      {!vehicleInfo.connected && (
+        <>
+          <Card style={styles.scanCard}>
+            <Card.Title
+              title="Connexion à l'équipement OBD"
+              subtitle="Scanner les adaptateurs Bluetooth"
+            />
+            <Card.Content>
+              <Button
+                mode="contained"
+                onPress={startScan}
+                loading={scanning}
+                disabled={scanning || connecting}
+                icon="bluetooth"
+                style={styles.scanButton}>
+                {scanning ? 'Recherche...' : 'Scanner Bluetooth'}
+              </Button>
+
+              {scanning && (
+                <ProgressBar indeterminate style={styles.progress} />
+              )}
+            </Card.Content>
+          </Card>
+
+          <FlatList
+            data={devices}
+            renderItem={renderDevice}
+            keyExtractor={keyExtractor}
+            ListEmptyComponent={
+              !scanning ? (
+                // @ts-ignore
+                <Text style={styles.emptyText}>
+                  Aucun appareil trouvé. Appuyez sur Scanner.
+                </Text>
+              ) : null
+            }
+          />
+        </>
+      )}
+
+      {vehicleInfo.connected && showLicenseInput && (
         <ScrollView style={styles.scrollView}>
           <Card style={styles.scanCard}>
-            <Card.Title title="Identification du véhicule" />
+            <Card.Title
+              title="Informations du véhicule"
+              subtitle={`Connecté à ${vehicleInfo.deviceName || 'ELM327'}`}
+            />
             <Card.Content>
               <TextInput
                 label="Plaque d'immatriculation"
@@ -491,57 +606,77 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
                 mode="outlined"
                 style={styles.input}
               />
-              <Button
-                mode="contained"
-                /* eslint-disable-next-line react-native/no-inline-styles */
-                style={{marginTop: 10}}
-                disabled={!licensePlate || !brand || !model}
-                onPress={() => {
-                  const yearInt = parseInt(year, 10);
-                  if (year && !isNaN(yearInt)) {
-                    const selectedModelData = vehicleModels.find(
-                      m =>
-                        m.brand.toLowerCase() === brand.toLowerCase() &&
-                        m.model.toLowerCase() === model.toLowerCase(),
-                    );
+              {vin ? (
+                <TextInput
+                  label="VIN (N° Châssis)"
+                  value={vin}
+                  editable={false}
+                  mode="outlined"
+                  style={[styles.input, {backgroundColor: '#f0f0f0'}]}
+                />
+              ) : null}
 
-                    if (selectedModelData) {
-                      if (
-                        selectedModelData.year_start &&
-                        yearInt < selectedModelData.year_start
-                      ) {
-                        Alert.alert(
-                          'Année invalide',
-                          `L'année ${yearInt} est trop ancienne pour ce modèle. L'année minimale est ${selectedModelData.year_start}.`,
-                        );
-                        return;
-                      }
-                      if (
-                        selectedModelData.year_end &&
-                        yearInt > selectedModelData.year_end
-                      ) {
-                        Alert.alert(
-                          'Année invalide',
-                          `L'année ${yearInt} est trop récente pour ce modèle. L'année maximale est ${selectedModelData.year_end}.`,
-                        );
-                        return;
+              <View style={styles.actionButtons}>
+                <Button
+                  mode="contained"
+                  style={styles.actionButton}
+                  disabled={!licensePlate || !brand || !model}
+                  onPress={() => {
+                    const yearInt = parseInt(year, 10);
+                    if (year && !isNaN(yearInt)) {
+                      const selectedModelData = vehicleModels.find(
+                        m =>
+                          m.brand.toLowerCase() === brand.toLowerCase() &&
+                          m.model.toLowerCase() === model.toLowerCase(),
+                      );
+
+                      if (selectedModelData) {
+                        if (
+                          selectedModelData.year_start &&
+                          yearInt < selectedModelData.year_start
+                        ) {
+                          Alert.alert(
+                            'Année invalide',
+                            `L'année ${yearInt} est trop ancienne pour ce modèle. L'année minimale est ${selectedModelData.year_start}.`,
+                          );
+                          return;
+                        }
+                        if (
+                          selectedModelData.year_end &&
+                          yearInt > selectedModelData.year_end
+                        ) {
+                          Alert.alert(
+                            'Année invalide',
+                            `L'année ${yearInt} est trop récente pour ce modèle. L'année maximale est ${selectedModelData.year_end}.`,
+                          );
+                          return;
+                        }
                       }
                     }
-                  }
 
-                  setShowLicenseInput(false);
-                  setVehicleInfo({
-                    licensePlate,
-                    brand,
-                    model,
-                    year: parseInt(year, 10) || undefined,
-                    // Ne pas mettre à false si déjà connecté
-                    connected: vehicleInfo.connected || false,
-                  });
-                  checkRecurrence(licensePlate);
-                }}>
-                Continuer
-              </Button>
+                    setShowLicenseInput(false);
+                    setVehicleInfo({
+                      licensePlate,
+                      brand,
+                      model,
+                      year: parseInt(year, 10) || undefined,
+                      connected: true,
+                    });
+                    checkRecurrence(licensePlate);
+                  }}>
+                  Lancer le diagnostic
+                </Button>
+
+                <Button
+                  mode="outlined"
+                  onPress={() => {
+                    setVehicleInfo({connected: false});
+                    setDevices([]);
+                  }}
+                  style={styles.secondaryButton}>
+                  Changer d'adaptateur
+                </Button>
+              </View>
 
               {vehicleStats && (
                 <View style={styles.statsContainer}>
@@ -627,85 +762,53 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
         </ScrollView>
       )}
 
-      {!showLicenseInput && (
-        <>
-          {!vehicleInfo.connected ? (
-            <>
-              <Card style={styles.scanCard}>
-                <Card.Title
-                  title="Scanner les adaptateurs OBD"
-                  subtitle={`Véhicule : ${licensePlate}`}
-                />
-                <Card.Content>
-                  <Button
-                    mode="contained"
-                    onPress={startScan}
-                    loading={scanning}
-                    disabled={scanning || connecting}
-                    icon="bluetooth"
-                    style={styles.scanButton}>
-                    {scanning ? 'Recherche...' : 'Scanner Bluetooth'}
-                  </Button>
-
-                  {scanning && (
-                    <ProgressBar indeterminate style={styles.progress} />
-                  )}
-                </Card.Content>
-              </Card>
-
-              <FlatList
-                data={devices}
-                renderItem={renderDevice}
-                keyExtractor={keyExtractor}
-                ListEmptyComponent={
-                  !scanning ? (
-                    // @ts-ignore
-                    <Text style={styles.emptyText}>
-                      Aucun appareil trouvé. Appuyez sur Scanner.
-                    </Text>
-                  ) : null
-                }
-              />
-            </>
-          ) : (
-            <Card style={styles.diagnosticCard}>
-              <Card.Title
-                title="Diagnostic véhicule"
-                subtitle={`Véhicule : ${licensePlate}`}
-              />
-              <Card.Content>
-                {/* @ts-ignore */}
-                <Text style={styles.connectedText}>
-                  Équipement : {vehicleInfo.deviceName || 'Connecté'}
-                </Text>
-                <View style={styles.progressContainer}>
-                  <ProgressBar progress={scanProgress} color="#4CAF50" style={styles.progress} />
-                  <Text style={styles.progressText}>{Math.round(scanProgress * 100)}%</Text>
-                </View>
-                <Button
-                  mode="contained"
-                  onPress={runFullDiagnostic}
-                  loading={isScanning}
-                  disabled={isScanning}
-                  icon="play"
-                  style={styles.diagnosticButton}>
-                  Lancer le diagnostic complet
-                </Button>
-                <Button
-                  mode="outlined"
-                  onPress={() => {
-                    // Option pour changer d'appareil si besoin
-                    setVehicleInfo({connected: false});
-                    setDevices([]);
-                  }}
-                  style={{marginTop: 10}}
-                  color="#757575">
-                  Changer d'adaptateur
-                </Button>
-              </Card.Content>
-            </Card>
-          )}
-        </>
+      {vehicleInfo.connected && !showLicenseInput && (
+        <View style={styles.diagnosticContainer}>
+          <Card style={styles.diagnosticCard}>
+            <Card.Title
+              title="Prêt pour le diagnostic"
+              subtitle={`Véhicule : ${brand} ${model} (${licensePlate})`}
+            />
+            <Card.Content>
+              {/* @ts-ignore */}
+              <Text style={styles.connectedText}>
+                Équipement : {vehicleInfo.deviceName || 'Connecté'}
+              </Text>
+              <View style={styles.progressContainer}>
+                <ProgressBar progress={scanProgress} color="#4CAF50" style={styles.progress} />
+                <Text style={styles.progressText}>{Math.round(scanProgress * 100)}%</Text>
+              </View>
+              <Button
+                mode="contained"
+                onPress={runFullDiagnostic}
+                loading={isScanning}
+                disabled={isScanning}
+                icon="play"
+                style={styles.diagnosticButton}>
+                Lancer le diagnostic complet
+              </Button>
+              <Button
+                mode="outlined"
+                onPress={() => {
+                  setShowLicenseInput(true);
+                }}
+                style={styles.secondaryButton}
+                disabled={isScanning}>
+                Modifier infos véhicule
+              </Button>
+              <Button
+                mode="text"
+                onPress={() => {
+                  setVehicleInfo({connected: false});
+                  setDevices([]);
+                }}
+                style={{marginTop: 10}}
+                disabled={isScanning}>
+                Déconnecter l'adaptateur
+              </Button>
+            </Card.Content>
+          </Card>
+        </View>
       )}
     </View>
   );
@@ -748,8 +851,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
     backgroundColor: '#E8F5E9',
   },
+  diagnosticContainer: {
+    flex: 1,
+  },
   diagnosticButton: {
     marginTop: 16,
+  },
+  actionButtons: {
+    marginTop: 16,
+  },
+  actionButton: {
+    marginBottom: 8,
+  },
+  secondaryButton: {
+    marginTop: 8,
   },
   connectedText: {
     fontSize: 14,

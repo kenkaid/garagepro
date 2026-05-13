@@ -1,5 +1,5 @@
 // src/screens/ResultsScreen.tsx
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {View, StyleSheet, ScrollView, Alert, Text, ActivityIndicator} from 'react-native';
 import {Card, Button, Divider, TextInput, Switch} from 'react-native-paper';
 import {DTCCard} from '../../components/garage/DTCCard';
@@ -8,6 +8,8 @@ import {apiService} from '../../services/apiService';
 import {obdService} from '../../services/obdService';
 import {useStore} from '../../store/useStore.ts';
 import {formatPrice} from '../../utils/diagnosticUtils';
+import {hasFeature} from '../../utils/featureControl';
+import dtcLocalData from '../../data/dtc_local.json';
 
 export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
   navigation,
@@ -59,6 +61,34 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
     isHistoryView ? historyScan.is_completed : false,
   );
   const [isCompleted, setIsCompleted] = useState(initialIsCompleted);
+  const [notes, setNotes] = useState(
+    isHistoryView ? (historyScan.notes || '') : '',
+  );
+  const [localDTCs, setLocalDTCs] = useState<any[]>([]);
+
+  // Enrichir les DTCs avec la base locale au montage du composant
+  useEffect(() => {
+    const enriched = (displayDTCs || []).map((dtc: any) => {
+      const code = typeof dtc === 'string' ? dtc : (dtc.code || dtc.dtc?.code);
+      if (!code) return dtc;
+      
+      const upperCode = code.toUpperCase();
+      // @ts-ignore
+      const localMeaning = dtcLocalData[upperCode];
+      
+      if (localMeaning) {
+        // On fusionne avec la description locale si le backend n'a rien fourni
+        const dtcObj = typeof dtc === 'string' ? {code: upperCode} : dtc;
+        return {
+          ...dtcObj,
+          meaning: dtcObj.meaning || localMeaning,
+          description: dtcObj.description || localMeaning,
+        };
+      }
+      return dtc;
+    });
+    setLocalDTCs(enriched);
+  }, [displayDTCs]);
 
   // Choix des DTC à afficher : soit ceux du store (nouveau scan), soit ceux de l'historique
   // Fusionner les données de l'IA dans l'historique si disponibles
@@ -112,6 +142,22 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
     'INCONNU';
 
   const handleAIAnalysis = async () => {
+    // Vérification de la fonctionnalité AI Interpretation
+    if (!hasFeature(user, 'ai_interpretation')) {
+      Alert.alert(
+        'Fonctionnalité Verrouillée',
+        "L'Analyse IA Approfondie nécessite un plan d'abonnement supérieur. Souhaitez-vous voir nos offres ?",
+        [
+          {text: 'Plus tard', style: 'cancel'},
+          {
+            text: 'Voir les offres',
+            onPress: () => navigation.navigate('Subscriptions'),
+          },
+        ],
+      );
+      return;
+    }
+
     const codes = isHistoryView
       ? (historyScan.found_dtcs || []).map((d: any) => d.code || d)
       : currentDTCs.map(d => d.code);
@@ -162,7 +208,7 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
         : currentDTCs.map(d => ({ code: d.code, status: d.status || 'confirmed' })),
       notes: isHistoryView
         ? historyScan.notes
-        : "Scan effectué via l'application mobile.",
+        : (notes || "Scan effectué via l'application mobile."),
       actual_labor_cost: parseInt(laborCost, 10) || 0,
       actual_parts_cost: parseInt(partsCost, 10) || 0,
       is_completed: isCompleted,
@@ -181,8 +227,13 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
     };
 
     // Important : On transmet l'ID si on est en train de modifier un scan existant
-    if (isHistoryView && historyScan.id) {
-      scanData.id = historyScan.id;
+    if ((isHistoryView || route.params?.scan?.id) && (historyScan?.id || route.params?.scan?.id)) {
+      scanData.id = isHistoryView ? historyScan.id : route.params.scan.id;
+    }
+
+    // Si on a modifié les notes, on les passe au backend
+    if (notes) {
+      scanData.notes = notes;
     }
 
     const result = await apiService.saveScan(scanData);
@@ -208,14 +259,23 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
         },
       ]);
     } else {
-      // Si on a échoué à cause d'un abonnement expiré (géré par 403 sur le backend)
-      // On peut quand même laisser le mode hors-ligne si c'est une erreur de connexion,
-      // mais le backend renvoie 403 pour l'abonnement.
-      // Comme on a supprimé le console.error détaillé dans apiService, on garde un message générique ici
-      // ou on pourrait améliorer apiService pour renvoyer l'erreur.
+      // Alternative : Sauvegarde locale en cas d'erreur réseau ou serveur
+      const localResult = await apiService.saveScanLocally(scanData);
+      
+      if (localResult) {
+        if (isHistoryView) {
+          const updatedHistory = scanHistory.map((s: any) =>
+            (s as any).id === (localResult as any).id ? (localResult as any) : s,
+          );
+          setScanHistory(updatedHistory);
+        } else {
+          addScanToHistory(localResult as any);
+        }
+      }
+
       Alert.alert(
-        'Information',
-        'Le diagnostic a été sauvegardé localement. Si votre abonnement est actif, il sera synchronisé automatiquement.',
+        'Erreur réseau',
+        'L’enregistrement sur le serveur a échoué. Le diagnostic a été sauvegardé localement sur votre téléphone et sera synchronisé plus tard.',
         [
           {
             text: 'OK',
@@ -422,8 +482,8 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
         isHistoryView={isHistoryView}
       />
 
-      {displayDTCs.length > 0 ? (
-        displayDTCs.map((dtc: any, idx: number) => renderDTCItem(dtc, idx))
+      {localDTCs.length > 0 ? (
+        localDTCs.map((dtc: any, index: number) => renderDTCItem(dtc, index))
       ) : (
         <Card style={styles.successCard}>
           <Text style={styles.successText}>✅ Aucun code défaut !</Text>
@@ -461,7 +521,7 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
       {isAnalyzing && (
         <View style={styles.analyzingBox}>
           <ActivityIndicator size="large" color="#1565C0" />
-          <Text style={styles.analyzingText}>Analyse IA en cours — DB + Base locale + Web...</Text>
+          <Text style={styles.analyzingText}>Analyse IA en cours — Comparaison base de données + Web...</Text>
         </View>
       )}
 
@@ -583,6 +643,17 @@ export const ResultsScreen: React.FC<{navigation: any; route: any}> = ({
             keyboardType="numeric"
             mode="outlined"
             style={styles.billInput}
+            disabled={initialIsCompleted}
+          />
+          <TextInput
+            label="Notes et conseils pour le client"
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            numberOfLines={4}
+            mode="outlined"
+            style={styles.notesInput}
+            placeholder="Ex: Prévoir le changement des plaquettes de frein bientôt."
             disabled={initialIsCompleted}
           />
           <View style={styles.switchRow}>
@@ -733,6 +804,7 @@ const styles = StyleSheet.create({
   dataValue: {fontWeight: 'bold', color: '#1976D2'},
   billingCard: {marginTop: 16, elevation: 4, borderRadius: 12},
   billInput: {marginBottom: 10},
+  notesInput: {marginBottom: 10, minHeight: 80},
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

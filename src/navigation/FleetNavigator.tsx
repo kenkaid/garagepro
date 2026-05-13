@@ -9,9 +9,11 @@ import {FleetSubscriptionScreen} from '../screens/fleet/FleetSubscriptionScreen'
 import {ProfileScreen} from '../screens/shared/ProfileScreen';
 import {UpcomingModulesScreen} from '../screens/shared/UpcomingModulesScreen';
 import {ExpertiseScreen} from '../screens/garage/ExpertiseScreen';
+import {ExpertScanScreen} from '../screens/garage/ExpertScanScreen';
 import {ScanScreen} from '../screens/garage/ScanScreen';
 import {ResultsScreen} from '../screens/garage/ResultsScreen';
 import {ExpertResultsScreen} from '../screens/garage/ExpertResultsScreen';
+import {TowTrucksScreen} from '../screens/shared/TowTrucksScreen';
 
 const Stack = createStackNavigator();
 
@@ -60,7 +62,7 @@ export const FleetNavigator = () => (
     <Stack.Screen
       name="Expertise"
       component={ExpertiseScreen}
-      options={{title: 'Expertise Occasion'}}
+      options={{title: 'Certification Kilométrique'}}
     />
     <Stack.Screen
       name="Scan"
@@ -75,7 +77,17 @@ export const FleetNavigator = () => (
     <Stack.Screen
       name="ExpertResults"
       component={ExpertResultsScreen}
-      options={{title: 'Rapport Expertise'}}
+      options={{title: 'Rapport Certification'}}
+    />
+    <Stack.Screen
+      name="ExpertScan"
+      component={ExpertScanScreen}
+      options={{title: 'Scan Expert', headerShown: false}}
+    />
+    <Stack.Screen
+      name="TowTrucks"
+      component={TowTrucksScreen}
+      options={{title: 'Service de Remorquage'}}
     />
     <Stack.Screen
       name="UpcomingModules"

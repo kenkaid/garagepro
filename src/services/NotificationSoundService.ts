@@ -1,62 +1,47 @@
-import {Platform, Vibration} from 'react-native';
+import PushNotification from 'react-native-push-notification';
+import {Platform} from 'react-native';
 
-/**
- * Service pour gérer les sons de notification.
- *
- * IMPORTANT: Nécessite l'installation de 'react-native-sound' :
- * 1. npm install react-native-sound
- * 2. npx pod-install (pour iOS)
- */
+// Configuration initiale de PushNotification (une seule fois)
+PushNotification.configure({
+  onNotification: function (notification) {
+    // Callback quand une notification est reçue/cliquée
+  },
+  requestPermissions: Platform.OS === 'ios',
+});
 
-// On utilise require pour éviter les erreurs de compilation si la lib n'est pas encore installée
-let Sound: any = null;
-try {
-  Sound = require('react-native-sound');
-  if (Sound && Sound.setCategory) {
-    Sound.setCategory('Ambient');
-  }
-} catch (e) {
-  // Silencieux
+// Créer le canal de notification Android (obligatoire pour Android 8+)
+// On supprime d'abord l'ancien canal pour forcer la recréation avec la bonne importance
+if (Platform.OS === 'android') {
+  PushNotification.deleteChannel('garagiste-messages');
+  PushNotification.createChannel(
+    {
+      channelId: 'garagiste-messages',
+      channelName: 'Messages GaragistrePro',
+      channelDescription: 'Notifications pour les nouveaux messages',
+      soundName: 'default',
+      importance: 5, // MAX (nécessaire pour MIUI/Xiaomi)
+      vibrate: true,
+    },
+    (created) => {
+      console.log(`[NotificationSoundService] Canal créé: ${created}`);
+    },
+  );
 }
 
 class NotificationSoundService {
-  private sound: any = null;
-  private isLoaded: boolean = false;
-
-  constructor() {
-    this.init();
-  }
-
-  private init() {
-    if (!Sound) return;
-
-    // Son de notification système par défaut
-    // Note: Sur iOS, sans fichier 'default.wav' physique dans le projet, cela peut ne pas sonner.
-    // Sur Android, 'notification' est un mot-clé reconnu.
-    const soundName = Platform.OS === 'android' ? 'notification' : 'default';
-
-    this.sound = new Sound(soundName, Sound.MAIN_BUNDLE, (error: any) => {
-      if (error) {
-        this.isLoaded = false;
-      } else {
-        this.isLoaded = true;
-      }
-    });
-  }
-
   play() {
-    // Vibration systématique protégée par try/catch pour Android
-    try {
-      Vibration.vibrate([0, 100]);
-    } catch (e) {
-      console.log('[NotificationSoundService] Vibration non supportée ou permission manquante');
-    }
-
-    if (this.sound && this.isLoaded) {
-      this.sound.play();
-    } else if (Sound) {
-      this.init();
-    }
+    PushNotification.localNotification({
+      channelId: 'garagiste-messages',
+      title: 'Nouveau message',
+      message: 'Vous avez reçu un nouveau message',
+      soundName: 'default', // utilise la sonnerie de notification du téléphone
+      vibrate: true,
+      vibration: 300,
+      playSound: true,
+      importance: 'high',
+      priority: 'high',
+      smallIcon: 'ic_notification',
+    });
   }
 }
 

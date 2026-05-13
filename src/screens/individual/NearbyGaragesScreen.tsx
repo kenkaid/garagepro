@@ -13,6 +13,7 @@ import {
 import {TextInput} from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Geolocation from 'react-native-geolocation-service';
+import DatePickerModal from '../../components/DatePickerModal';
 import apiIndividualService from '../../services/individual/apiIndividualService';
 import ReviewModal from '../../components/ReviewModal';
 
@@ -26,6 +27,10 @@ export const NearbyGaragesScreen = ({navigation}: any) => {
   // Pour la notation
   const [selectedGarage, setSelectedGarage] = useState<any>(null);
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
+
+  // Pour le RDV
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [garageForAppointment, setGarageForAppointment] = useState<any>(null);
 
   useEffect(() => {
     fetchGarages();
@@ -118,42 +123,53 @@ export const NearbyGaragesScreen = ({navigation}: any) => {
     }
   };
 
-  const handleTakeAppointment = async (garage: any) => {
-    const vehicleInfo = userVehicleId
-      ? `\nVotre véhicule sera automatiquement associé au rendez-vous.`
-      : `\nAucun véhicule enregistré — le RDV sera créé sans véhicule.`;
+  const handleTakeAppointment = (garage: any) => {
+    setGarageForAppointment(garage);
+    setShowDatePicker(true);
+  };
 
-    Alert.alert(
-      'Rendez-vous',
-      `Voulez-vous prendre rendez-vous chez ${garage.shop_name || garage.name} ?${vehicleInfo}`,
-      [
-        {text: 'Annuler', style: 'cancel'},
-        {
-          text: 'Confirmer',
-          onPress: async () => {
-            try {
-              const appointmentData: {
-                mechanic: number;
-                appointment_date: string;
-                reason: string;
-                vehicle?: number;
-              } = {
-                mechanic: garage.id,
-                appointment_date: new Date().toISOString(),
-                reason: 'Entretien général',
-              };
-              if (userVehicleId) {
-                appointmentData.vehicle = userVehicleId;
-              }
-              await apiIndividualService.createAppointment(appointmentData);
-              Alert.alert('Succès', 'Votre demande de rendez-vous a été envoyée.');
-            } catch (error) {
-              Alert.alert('Erreur', 'Échec de la prise de rendez-vous.');
-            }
-          },
-        },
-      ],
-    );
+  const confirmAppointment = async (garage: any, date: Date) => {
+    try {
+      const appointmentData: {
+        mechanic: number;
+        appointment_date: string;
+        reason: string;
+        vehicle?: number;
+      } = {
+        mechanic: garage.id,
+        appointment_date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+        reason: 'Entretien général',
+      };
+      if (userVehicleId) {
+        appointmentData.vehicle = userVehicleId;
+      }
+      await apiIndividualService.createAppointment(appointmentData);
+      Alert.alert(
+        'Succès',
+        `Votre rendez-vous chez ${
+          garage.shop_name || garage.name
+        } pour le ${date.toLocaleDateString('fr-FR')} a été enregistré.`,
+      );
+    } catch (error: any) {
+      const msg = error?.response?.data?.error;
+      if (msg) {
+        Alert.alert('Rendez-vous', msg);
+      }
+    } finally {
+      setGarageForAppointment(null);
+    }
+  };
+
+  const onDateConfirm = (date: Date) => {
+    setShowDatePicker(false);
+    if (garageForAppointment) {
+      confirmAppointment(garageForAppointment, date);
+    }
+  };
+
+  const onDateCancel = () => {
+    setShowDatePicker(false);
+    setGarageForAppointment(null);
   };
 
   const renderGarageItem = ({item}: {item: any}) => (
@@ -267,6 +283,14 @@ export const NearbyGaragesScreen = ({navigation}: any) => {
           }}
         />
       )}
+
+      <DatePickerModal
+        visible={showDatePicker}
+        title={`📅 RDV chez ${garageForAppointment?.shop_name || garageForAppointment?.name || ''}`}
+        onConfirm={onDateConfirm}
+        onCancel={onDateCancel}
+        minimumDate={new Date()}
+      />
     </View>
   );
 };

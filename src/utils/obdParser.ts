@@ -66,6 +66,31 @@ const PID_DEFINITIONS: Record<
     unit: '%',
     decode: b => (b[0] * 100) / 255,
   },
+  '04': {
+    name: 'Charge moteur calculée',
+    unit: '%',
+    decode: b => (b[0] * 100) / 255,
+  },
+  '06': {
+    name: 'Fuel Trim Court Terme',
+    unit: '%',
+    decode: b => ((b[0] - 128) * 100) / 128,
+  },
+  '0E': {
+    name: 'Avance à l\'allumage',
+    unit: '°',
+    decode: b => (b[0] - 128) / 2,
+  },
+  '42': {
+    name: 'Tension module contrôle',
+    unit: 'V',
+    decode: b => (b[0] * 256 + b[1]) / 1000,
+  },
+  'battery': {
+    name: 'Tension batterie',
+    unit: 'V',
+    decode: b => (b[0] * 256 + b[1]) / 1000, // Souvent lu via commande AT RV, mais simulé ici
+  },
   '46': {
     name: 'Température ambiante',
     unit: '°C',
@@ -131,35 +156,54 @@ export class OBDParser {
     };
   }
 
-  // Parse les codes défaut (Mode 03)
+  // Parse les codes défaut (Mode 03 et Mode 07)
   static parseDTCs(data: string): string[] {
     const dtcs: string[] = [];
-    // Le format ELM327 pour le mode 03 est souvent des paires d'octets en hexadécimal.
-    // "43 01 03 01 04 00 00" -> 43 (mode 3 response), puis couples d'octets.
-    // On nettoie d'abord les caractères parasites
-    const clean = data
-      .replace(/>/g, '')
-      .replace(/\r/g, '')
-      .replace(/\n/g, ' ')
-      .replace(/\s/g, '');
+    
+    // Nettoyage et segmentation des lignes (ELM327 peut renvoyer plusieurs lignes)
+    const lines = data
+      .split(/[\r\n]+/)
+      .map(l => l.replace(/>/g, '').trim())
+      .filter(l => l.length > 0 && !l.includes('SEARCHING') && !l.includes('OK'));
 
-    // Ignorer le header de réponse (43 ou 43xx)
-    let start = 0;
-    if (clean.startsWith('43')) {
-      start = 2;
+    if (lines.length === 0) return [];
+
+    let payload = '';
+
+    // Gestion du protocole ISO 15765-2 (CAN multi-lignes)
+    // Exemple : 
+    // 0: 43 04 01 03 04 05 06
+    // 1: 07 08 00 00 00 00 00
+    if (lines.some(l => /^[0-9A-F]:/i.test(l))) {
+      lines.forEach(line => {
+        // On enlève l'index "0:", "1:", etc.
+        const content = line.replace(/^[0-9A-F]:\s*/i, '').replace(/\s+/g, '');
+        payload += content;
+      });
+    } else {
+      // Format standard (Single Frame)
+      // Exemple : "43 02 01 03 00 00"
+      payload = lines.join('').replace(/\s+/g, '');
     }
 
-    for (let i = start; i < clean.length - 3; i += 4) {
-      const byte1Hex = clean.substring(i, i + 2);
-      const byte2Hex = clean.substring(i + 2, i + 4);
+    // Le Mode 03 répond par 43. Le payload doit commencer par 43.
+    // Si la réponse vient d'un header (ex: 7E8 04 43 ...), on cherche l'index de 43
+    let startIdx = payload.indexOf('43');
+    if (startIdx === -1) return [];
 
-      if (!/^[0-9A-Fa-f]{2}$/.test(byte1Hex) || !/^[0-9A-Fa-f]{2}$/.test(byte2Hex)) {
-        continue;
-      }
+    // On saute le '43' (2 chars) et potentiellement le nombre de codes si présent
+    // Dans le standard CAN, après 43, on a souvent le nombre de DTCs (1 octet = 2 chars)
+    // Mais l'ELM simplifie souvent. On va scanner par blocs de 4 caractères (2 octets)
+    const dtcData = payload.substring(startIdx + 2);
+
+    for (let i = 0; i + 3 < dtcData.length; i += 4) {
+      const byte1Hex = dtcData.substring(i, i + 2);
+      const byte2Hex = dtcData.substring(i + 2, i + 4);
 
       const byte1 = parseInt(byte1Hex, 16);
       const byte2 = parseInt(byte2Hex, 16);
 
+      if (isNaN(byte1) || isNaN(byte2)) continue;
       if (byte1 === 0 && byte2 === 0) continue; // Padding
 
       const dtc = this.bytesToDTC(byte1, byte2);
@@ -168,42 +212,40 @@ export class OBDParser {
       }
     }
 
-    return dtcs;
+    return [...new Set(dtcs)]; // Dédoublonnage
   }
 
-  // Parse les codes défaut via UDS Mode 19 (tous systèmes : SRS airbag, BCM portes, ABS)
-  // Format réponse : "59 02 FF XX XX XX XX ..." où chaque DTC = 3 octets (2 code + 1 status)
+  // Parse les codes défaut via UDS Mode 19 (tous systèmes : SRS, ABS, etc.)
   static parseDTCsExtended(data: string): string[] {
     const dtcs: string[] = [];
-    const clean = data
-      .replace(/>/g, '')
-      .replace(/\r/g, '')
-      .replace(/\n/g, ' ')
-      .replace(/\s/g, '');
+    const lines = data
+      .split(/[\r\n]+/)
+      .map(l => l.replace(/>/g, '').trim())
+      .filter(l => l.length > 0);
 
-    // Chercher le header de réponse UDS 5902 ou 590209
-    let start = 0;
-    const idx5902 = clean.indexOf('5902');
-    if (idx5902 !== -1) {
-      // Sauter "5902" + 2 octets de status mask = 8 chars
-      start = idx5902 + 8;
+    let payload = '';
+    // Même logique d'assemblage multi-ligne
+    if (lines.some(l => /^[0-9A-F]:/i.test(l))) {
+      lines.forEach(line => {
+        payload += line.replace(/^[0-9A-F]:\s*/i, '').replace(/\s+/g, '');
+      });
     } else {
-      return dtcs;
+      payload = lines.join('').replace(/\s+/g, '');
     }
 
-    // Chaque DTC = 3 octets (6 chars hex) : 2 octets code + 1 octet status
-    for (let i = start; i + 5 < clean.length; i += 6) {
-      const byte1Hex = clean.substring(i, i + 2);
-      const byte2Hex = clean.substring(i + 2, i + 4);
-      // byte3 = status, on l'ignore pour le parsing
+    // Le Mode 19 répond par 59.
+    const startIdx = payload.indexOf('5902');
+    if (startIdx === -1) return [];
 
-      if (!/^[0-9A-Fa-f]{2}$/.test(byte1Hex) || !/^[0-9A-Fa-f]{2}$/.test(byte2Hex)) {
-        continue;
-      }
+    // Après 59 02 (4 chars), il y a souvent un octet de status mask (2 chars)
+    // Le format UDS est souvent : 3 octets par DTC (2 pour le code, 1 pour le statut)
+    const dtcData = payload.substring(startIdx + 6);
 
-      const byte1 = parseInt(byte1Hex, 16);
-      const byte2 = parseInt(byte2Hex, 16);
-
+    for (let i = 0; i + 5 < dtcData.length; i += 6) {
+      const byte1 = parseInt(dtcData.substring(i, i + 2), 16);
+      const byte2 = parseInt(dtcData.substring(i + 2, i + 4), 16);
+      
+      if (isNaN(byte1) || isNaN(byte2)) continue;
       if (byte1 === 0 && byte2 === 0) continue;
 
       const dtc = this.bytesToDTC(byte1, byte2);
@@ -212,7 +254,7 @@ export class OBDParser {
       }
     }
 
-    return dtcs;
+    return [...new Set(dtcs)];
   }
 
   // Convertit 2 bytes en code DTC (ex: 0x01, 0x03 -> P0103)

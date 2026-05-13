@@ -8,10 +8,8 @@ export const ExpertiseScreen: React.FC<{navigation: any; route: any}> = ({
 }) => {
   const vehicle = route.params?.vehicle;
 
-  const handleLaunchScan = (type: string) => {
-    navigation.navigate('Scan', {
-      scanType: type,
-      autoRun: true,
+  const handleLaunchScan = (_type: string) => {
+    navigation.navigate('ExpertScan', {
       vehicleData: vehicle
         ? {
             licensePlate: vehicle.license_plate,

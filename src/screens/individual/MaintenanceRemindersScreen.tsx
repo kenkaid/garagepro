@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import {useFocusEffect} from '@react-navigation/native';
+import * as ReactNavigation from '@react-navigation/native';
+const { useFocusEffect } = ReactNavigation;
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import apiIndividualService from '../../services/individual/apiIndividualService';
 

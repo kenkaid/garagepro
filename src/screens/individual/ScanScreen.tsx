@@ -79,6 +79,8 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
   const [brand, setBrand] = useState(route.params?.vehicleData?.brand || '');
   const [model, setModel] = useState(route.params?.vehicleData?.model || '');
   const [year, setYear] = useState(route.params?.vehicleData?.year?.toString() || '');
+  const [vin, setVin] = useState(route.params?.vehicleData?.vin || '');
+  const [showVehicleInput, setShowVehicleInput] = useState(false);
 
   const {
     setConnectedDevice,
@@ -91,7 +93,13 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
     addScanToHistory,
     user,
     vehicleInfo,
+    isTestMode,
   } = useStore();
+
+  useEffect(() => {
+    // Sincroniser le mode mock de l'obdService avec le store au chargement
+    obdService.setMockMode(isTestMode);
+  }, [isTestMode]);
 
   useEffect(() => {
     checkPermissions();
@@ -161,7 +169,61 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
         console.log('Protocole auto-détecté ou erreur silencieuse');
       }
 
-      Alert.alert('Connexion réussie', `Connecté à ${device.name || 'l\'adaptateur'}`);
+      // Tentative de lecture automatique du VIN
+      try {
+        const detectedVin = await obdService.readVIN();
+        if (detectedVin) {
+          setVin(detectedVin);
+          setVehicleInfo({vin: detectedVin});
+
+          // Identification automatique de la marque via WMI
+          const wmi = detectedVin.substring(0, 3).toUpperCase();
+          const wmiToBrand: {[key: string]: string} = {
+            'VF1': 'Renault', 'VF3': 'Peugeot', 'VF7': 'Citroën',
+            'WVW': 'Volkswagen', 'WVG': 'Volkswagen', 'WV2': 'Volkswagen',
+            'WBA': 'BMW', 'WBS': 'BMW', 'WDB': 'Mercedes-Benz', 'WDD': 'Mercedes-Benz',
+            'ZFA': 'Fiat', 'TSM': 'Suzuki',
+            'JT1': 'Toyota', 'JTD': 'Toyota', 'JT6': 'Toyota', 'JTM': 'Toyota',
+            'JMB': 'Mitsubishi', 'JA3': 'Mitsubishi', 'JM0': 'Mazda',
+            'JN1': 'Nissan', 'JN8': 'Nissan', 'JHM': 'Honda', 'JHL': 'Honda',
+            'KMH': 'Hyundai', 'KNA': 'Kia', 'KND': 'Kia', 'KNM': 'Samsung',
+            '1FM': 'Ford', '1FT': 'Ford', '1FC': 'Ford', '2FM': 'Ford',
+            '1GC': 'Chevrolet', '1GN': 'Chevrolet', '1G1': 'Chevrolet',
+            'SAL': 'Land Rover', 'SARR': 'Range Rover', 'SCC': 'Lotus',
+            'UU1': 'Dacia', 'W0L': 'Opel', 'W0V': 'Vauxhall',
+          };
+
+          const detectedBrand = wmiToBrand[wmi] || wmiToBrand[wmi.substring(0, 2)];
+          if (detectedBrand && !brand) {
+            setBrand(detectedBrand);
+          }
+
+          // Extraction de l'année (10ème caractère)
+          const yearCode = detectedVin.charAt(9).toUpperCase();
+          const yearCodes: {[key: string]: number} = {
+            'A': 2010, 'B': 2011, 'C': 2012, 'D': 2013, 'E': 2014, 'F': 2015,
+            'G': 2016, 'H': 2017, 'J': 2018, 'K': 2019, 'L': 2020, 'M': 2021,
+            'N': 2022, 'P': 2023, 'R': 2024, 'S': 2025,
+            'Y': 2000, '1': 2001, '2': 2002, '3': 2003, '4': 2004, '5': 2005,
+            '6': 2006, '7': 2007, '8': 2008, '9': 2009,
+          };
+          if (yearCodes[yearCode] && !year) {
+            setYear(yearCodes[yearCode].toString());
+          }
+
+          Alert.alert(
+            'Véhicule identifié',
+            `VIN : ${detectedVin}\nMarque détectée : ${detectedBrand || 'Inconnue'}\n\nVeuillez maintenant vérifier les informations du véhicule.`,
+          );
+        } else {
+          Alert.alert('Connexion réussie', 'Veuillez maintenant vérifier les informations du véhicule.');
+        }
+      } catch (vinErr) {
+        Alert.alert('Connexion réussie', 'Veuillez maintenant vérifier les informations du véhicule.');
+      }
+
+      // Afficher le formulaire après la connexion réussie
+      setShowVehicleInput(true);
     } else {
       Alert.alert('Erreur de connexion', 'Impossible de se connecter à l\'appareil.');
     }
@@ -304,32 +366,6 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
         </View>
       )}
       <ScrollView style={styles.scrollView}>
-        <Card style={styles.infoCard}>
-          <Card.Title title="Informations Véhicule" subtitle="Données pour le rapport" />
-          <Card.Content>
-            <View style={styles.vehicleInfoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Plaque</Text>
-                <Text style={styles.infoValue}>{licensePlate || 'N/A'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Marque</Text>
-                <Text style={styles.infoValue}>{brand || 'N/A'}</Text>
-              </View>
-            </View>
-            <View style={styles.vehicleInfoRow}>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Modèle</Text>
-                <Text style={styles.infoValue}>{model || 'N/A'}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>Année</Text>
-                <Text style={styles.infoValue}>{year || 'N/A'}</Text>
-              </View>
-            </View>
-          </Card.Content>
-        </Card>
-
         {!vehicleInfo.connected ? (
           <View>
             <Card style={styles.scanCard}>
@@ -360,6 +396,72 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
               }
             />
           </View>
+        ) : showVehicleInput ? (
+          <Card style={styles.infoCard}>
+            <Card.Title
+              title="Informations Véhicule"
+              subtitle={`Connecté à ${vehicleInfo.deviceName || 'ELM327'}`}
+            />
+            <Card.Content>
+              <TextInput
+                label="Plaque d'immatriculation"
+                value={licensePlate}
+                onChangeText={setLicensePlate}
+                placeholder="ex: 1234AB01"
+                autoCapitalize="characters"
+                mode="outlined"
+                style={styles.input}
+              />
+              <TextInput
+                label="Marque"
+                value={brand}
+                onChangeText={setBrand}
+                placeholder="ex: Toyota"
+                mode="outlined"
+                style={styles.input}
+              />
+              <TextInput
+                label="Modèle"
+                value={model}
+                onChangeText={setModel}
+                placeholder="ex: RAV4"
+                mode="outlined"
+                style={styles.input}
+              />
+              <TextInput
+                label="Année"
+                value={year}
+                onChangeText={setYear}
+                placeholder="ex: 2015"
+                keyboardType="numeric"
+                mode="outlined"
+                style={styles.input}
+              />
+
+              <Button
+                mode="contained"
+                onPress={() => {
+                  setVehicleInfo({
+                    licensePlate,
+                    brand,
+                    model,
+                    year: parseInt(year, 10) || undefined,
+                  });
+                  setShowVehicleInput(false);
+                }}
+                disabled={!licensePlate || !brand || !model}
+                style={styles.confirmButton}>
+                Confirmer et Continuer
+              </Button>
+
+              <Button
+                mode="outlined"
+                onPress={disconnectDevice}
+                style={styles.changeDeviceButton}>
+                Déconnecter
+              </Button>
+            </Card.Content>
+          </Card>
         ) : (
           <Card style={styles.diagnosticCard}>
             <Card.Title
@@ -370,8 +472,8 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
               <View style={styles.connectedDeviceContainer}>
                 <List.Icon icon="check-circle" color="#4CAF50" />
                 <View>
-                    <Text style={styles.connectedLabel}>Appareil connecté :</Text>
-                    <Text style={styles.connectedValue}>{vehicleInfo.deviceName || 'ELM327'}</Text>
+                    <Text style={styles.connectedLabel}>Véhicule :</Text>
+                    <Text style={styles.connectedValue}>{brand} {model} ({licensePlate})</Text>
                 </View>
               </View>
 
@@ -396,11 +498,19 @@ export const ScanScreen: React.FC<{navigation: any; route: any}> = ({
               </Button>
 
               <Button
+                mode="outlined"
+                onPress={() => setShowVehicleInput(true)}
+                disabled={isScanning}
+                style={styles.changeDeviceButton}>
+                Modifier infos véhicule
+              </Button>
+
+              <Button
                 mode="text"
                 onPress={disconnectDevice}
                 disabled={isScanning}
                 style={styles.changeDeviceButton}>
-                Changer d'adaptateur
+                Déconnecter l'adaptateur
               </Button>
             </Card.Content>
           </Card>
@@ -504,6 +614,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   diagnosticButton: {
+    paddingVertical: 4,
+  },
+  input: {
+    marginBottom: 12,
+  },
+  confirmButton: {
+    marginTop: 8,
     paddingVertical: 4,
   },
   changeDeviceButton: {

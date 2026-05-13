@@ -9,7 +9,14 @@ import {
   useWindowDimensions,
   Text as RNText,
 } from 'react-native';
-import {Card, Badge, Chip, ActivityIndicator, Divider, Text} from 'react-native-paper';
+import {
+  Card,
+  Badge,
+  Chip,
+  ActivityIndicator,
+  Divider,
+  Text,
+} from 'react-native-paper';
 import RenderHtml from 'react-native-render-html';
 import {apiService} from '../../services/apiService';
 
@@ -52,7 +59,7 @@ export const UpcomingModulesScreen: React.FC = () => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('fr-FR', {
       month: 'long',
-      year: 'numeric'
+      year: 'numeric',
     });
   };
 
@@ -60,14 +67,19 @@ export const UpcomingModulesScreen: React.FC = () => {
     <Card style={styles.card}>
       <Card.Content>
         <View style={styles.headerRow}>
-          <Text variant="titleMedium" style={styles.moduleName}>{item.name}</Text>
-          <Badge style={styles.dateBadge}>Prévu: {formatDate(item.expectedReleaseDate || item.expected_release_date)}</Badge>
+          <Text variant="titleMedium" style={styles.moduleName}>
+            {item.name}
+          </Text>
+          <Badge style={styles.dateBadge}>
+            Prévu:{' '}
+            {formatDate(item.expectedReleaseDate || item.expected_release_date)}
+          </Badge>
         </View>
         <Divider style={styles.divider} />
         {item.description_html ? (
           <RenderHtml
             contentWidth={width - 64}
-            source={{ html: item.description_html }}
+            source={{html: item.description_html}}
             baseStyle={styles.description}
           />
         ) : (
@@ -81,9 +93,15 @@ export const UpcomingModulesScreen: React.FC = () => {
               {item.applicablePlans.map((plan: any) => (
                 <Chip
                   key={plan.id}
-                  style={[styles.planChip, {backgroundColor: getPlanColor([plan]), marginRight: 4, marginBottom: 4}]}
-                  textStyle={styles.planChipText}
-                >
+                  style={[
+                    styles.planChip,
+                    {
+                      backgroundColor: getPlanColor([plan]),
+                      marginRight: 4,
+                      marginBottom: 4,
+                    },
+                  ]}
+                  textStyle={styles.planChipText}>
                   {plan.name}
                 </Chip>
               ))}
@@ -91,8 +109,7 @@ export const UpcomingModulesScreen: React.FC = () => {
           ) : (
             <Chip
               style={[styles.planChip, {backgroundColor: '#757575'}]}
-              textStyle={styles.planChipText}
-            >
+              textStyle={styles.planChipText}>
               Tous les plans
             </Chip>
           )}
@@ -115,21 +132,28 @@ export const UpcomingModulesScreen: React.FC = () => {
       <View style={styles.infoBox}>
         <RNText style={styles.infoTitle}>🚀 Modules en préparation</RNText>
         <RNText style={styles.infoSubtitle}>
-          Découvrez les fonctionnalités sur lesquelles nous travaillons pour améliorer votre quotidien.
+          Découvrez les fonctionnalités sur lesquelles nous travaillons pour
+          améliorer votre quotidien.
         </RNText>
       </View>
 
       <FlatList
         data={modules}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={item => item.id.toString()}
         renderItem={renderModule}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1976D2']} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#1976D2']}
+          />
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <RNText style={styles.emptyText}>Aucun module prévu pour le moment.</RNText>
+            <RNText style={styles.emptyText}>
+              Aucun module prévu pour le moment.
+            </RNText>
           </View>
         }
       />
@@ -219,7 +243,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   planChip: {
-    height: 28,
+    height: 30,
   },
   planChipText: {
     color: 'white',

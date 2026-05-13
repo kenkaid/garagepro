@@ -8,7 +8,7 @@ import {
   TextInput,
   RefreshControl,
   Alert,
-  Linking,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {apiService} from '../../services/apiService';
@@ -221,7 +221,12 @@ const NotificationsScreen = ({navigation}: any) => {
 
 const styles = StyleSheet.create({
   container: {flex: 1, backgroundColor: '#f5f5f5'},
-  header: {padding: 15, backgroundColor: '#fff', elevation: 2},
+  header: {
+    padding: 15,
+    paddingTop: Platform.OS === 'ios' ? 20 : 10,
+    backgroundColor: '#fff',
+    elevation: 2
+  },
   searchBar: {
     backgroundColor: '#f0f0f0',
     borderRadius: 8,

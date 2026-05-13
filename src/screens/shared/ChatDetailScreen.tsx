@@ -5,7 +5,6 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  Vibration,
 } from 'react-native';
 import {
   TextInput,
@@ -16,7 +15,7 @@ import {
 } from 'react-native-paper';
 import {apiService} from '../../services/apiService';
 import {useStore} from '../../store/useStore';
-import {NotificationSoundService} from '../../services/NotificationSoundService';
+import {notificationSoundService} from '../../services/NotificationSoundService';
 
 export const ChatDetailScreen: React.FC<{route: any; navigation: any}> = ({
   route,
@@ -43,7 +42,7 @@ export const ChatDetailScreen: React.FC<{route: any; navigation: any}> = ({
       if (messages.length > 0 && sortedData.length > messages.length) {
           const lastNew = sortedData[sortedData.length - 1];
           if (!lastNew.is_me) {
-              NotificationSoundService.playNotificationSound();
+              notificationSoundService.play();
           }
       }
 

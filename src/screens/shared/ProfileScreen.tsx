@@ -27,7 +27,7 @@ import {Colors, SharedStyles} from '../../styles/theme';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
-  const {user, setUser, setScanHistory} = useStore();
+  const {user, setUser, setScanHistory, isTestMode, setIsTestMode} = useStore();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -460,6 +460,37 @@ export const ProfileScreen: React.FC<{navigation: any}> = ({navigation}) => {
           <RNText style={SharedStyles.sectionTitle}>
             Paramètres Matériels (Debug)
           </RNText>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              const newValue = !isTestMode;
+              setIsTestMode(newValue);
+              obdService.setMockMode(newValue);
+            }}>
+            <Icon
+              name={isTestMode ? 'vibrate' : 'vibrate-off'}
+              size={24}
+              color={isTestMode ? Colors.secondary : Colors.disabled}
+            />
+            <View style={styles.menuItemText}>
+              <RNText style={styles.menuItemTitle}>
+                Mode Test (Simulation)
+              </RNText>
+              <RNText style={styles.menuItemSubtitle}>
+                {isTestMode
+                  ? 'Actif - Utilise des données simulées'
+                  : 'Inactif - Utilise le Bluetooth réel'}
+              </RNText>
+            </View>
+            <Icon
+              name={isTestMode ? 'toggle-switch' : 'toggle-switch-off'}
+              size={36}
+              color={isTestMode ? Colors.secondary : Colors.disabled}
+            />
+          </TouchableOpacity>
+
+          <Divider style={styles.divider} />
+
           <TouchableOpacity
             style={styles.menuItem}
             onPress={handleTestBluetooth}>

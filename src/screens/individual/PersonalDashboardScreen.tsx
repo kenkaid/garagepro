@@ -18,22 +18,22 @@ import {
   Dimensions,
   StatusBar,
   Platform,
+  PermissionsAndroid,
 } from 'react-native';
-import {useFocusEffect} from '@react-navigation/native';
+import Geolocation from 'react-native-geolocation-service';
+import * as ReactNavigation from '@react-navigation/native';
+const { useFocusEffect } = ReactNavigation;
 import {Avatar, Surface, Card} from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import DateTimePicker, {
-  DateTimePickerAndroid,
-} from '@react-native-community/datetimepicker';
-import apiIndividualService from '../../services/individual/apiIndividualService';
-import {apiService} from '../../services/apiService';
+import ReviewModal from '../../components/ReviewModal';
+import {hasFeature} from '../../utils/featureControl';
+import DatePickerModal from '../../components/DatePickerModal';
 import {useStore} from '../../store/useStore';
-import {notificationSoundService} from '../../services/NotificationSoundService';
+import {apiService} from '../../services/apiService';
+import apiIndividualService from '../../services/individual/apiIndividualService';
 import {obdService} from '../../services/obdService';
 import {telemetrySyncService} from '../../services/telemetrySyncService';
-import Geolocation from 'react-native-geolocation-service';
-import {PermissionsAndroid} from 'react-native';
-import ReviewModal from '../../components/ReviewModal';
+import {notificationSoundService} from '../../services/NotificationSoundService';
 
 const {width} = Dimensions.get('window');
 
@@ -206,6 +206,8 @@ const PersonalDashboardScreen = ({navigation}: any) => {
     ]).start();
   };
 
+  const aiLoopCounterRef = useRef(0);
+
   const startLiveLoop = useCallback(async () => {
     liveLoopRef.current = true;
     setLiveLoading(true);
@@ -233,6 +235,25 @@ const PersonalDashboardScreen = ({navigation}: any) => {
           telemetrySyncService.updateBuffer(newData);
 
           pulse();
+
+          // Analyse IA toutes les 5 lectures (environ toutes les 15 secondes)
+          aiLoopCounterRef.current += 1;
+          if (aiLoopCounterRef.current % 5 === 0) {
+            const pidList = pids
+              .filter(p => typeof p.value === 'number')
+              .map(p => ({pid: p.pid, value: p.value as number, unit: p.unit || ''}));
+            try {
+              const result = await apiService.analyzeLive(pidList, dashboardData?.vehicle?.id, []);
+              if (result && !result.__error && result.summary?.total_anomalies > 0) {
+                // 🔔 Notification système 3 fois de suite
+                notificationSoundService.play();
+                setTimeout(() => notificationSoundService.play(), 1500);
+                setTimeout(() => notificationSoundService.play(), 3000);
+              }
+            } catch (_) {
+              // Ignore les erreurs d'analyse IA
+            }
+          }
         }
       } catch (e) {
         // Ignore les erreurs transitoires
@@ -244,7 +265,7 @@ const PersonalDashboardScreen = ({navigation}: any) => {
     }
     liveLoopRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dashboardData?.vehicle?.id]);
 
   const stopLiveLoop = () => {
     liveLoopRef.current = false;
@@ -269,17 +290,53 @@ const PersonalDashboardScreen = ({navigation}: any) => {
   );
 
   useLayoutEffect(() => {
+    const canChat = hasFeature(user, 'internal_messaging');
+
     navigation.setOptions({
       headerLeft: null,
       headerRight: () => (
         <View style={{flexDirection: 'row', alignItems: 'center'}}>
           {/* Liste de chat avec badge */}
           <TouchableOpacity
-            onPress={() => navigation.navigate('Chat')}
-            style={{marginRight: 20}}>
+            onPress={() => {
+              if (!canChat) {
+                Alert.alert(
+                  'Option Verrouillée',
+                  "L'accès à la messagerie interne nécessite un plan d'abonnement supérieur. Souhaitez-vous voir nos offres ?",
+                  [
+                    {text: 'Plus tard', style: 'cancel'},
+                    {
+                      text: 'Voir les offres',
+                      onPress: () => navigation.navigate('Subscriptions'),
+                    },
+                  ],
+                );
+              } else {
+                navigation.navigate('Chat');
+              }
+            }}
+            style={{marginRight: 20, opacity: canChat ? 1 : 0.6}}>
             <View>
               <Icon name="chat-outline" size={26} color="#fff" />
-              {unreadCount > 0 && (
+              {!canChat && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: -5,
+                    top: -5,
+                    backgroundColor: '#757575',
+                    borderRadius: 10,
+                    width: 16,
+                    height: 16,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderWidth: 1.5,
+                    borderColor: '#1976D2',
+                  }}>
+                  <Icon name="lock" size={10} color="#fff" />
+                </View>
+              )}
+              {canChat && unreadCount > 0 && (
                 <View
                   style={{
                     position: 'absolute',
@@ -340,7 +397,7 @@ const PersonalDashboardScreen = ({navigation}: any) => {
         </View>
       ),
     });
-  }, [navigation, unreadCount, reminderCount]);
+  }, [navigation, unreadCount, reminderCount, user]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -399,68 +456,14 @@ const PersonalDashboardScreen = ({navigation}: any) => {
       return;
     }
     setSelectedGarage(garage);
-
-    if (Platform.OS === 'android') {
-      try {
-        // Tentative d'importation sécurisée du module natif
-        const DateTimePickerModule = require('@react-native-community/datetimepicker');
-        const AndroidPicker = DateTimePickerModule.DateTimePickerAndroid;
-
-        if (AndroidPicker && typeof AndroidPicker.open === 'function') {
-          AndroidPicker.open({
-            value: new Date(),
-            onChange: (event: any, date?: Date) => {
-              if (event.type === 'set' && date) {
-                confirmAppointment(garage, date);
-              } else {
-                setSelectedGarage(null);
-              }
-            },
-            mode: 'datetime',
-            is24Hour: true,
-            minimumDate: new Date(),
-          });
-        } else {
-          throw new Error('Module RNCDatePicker non trouvé dans le binaire');
-        }
-      } catch (e) {
-        console.warn('DateTimePickerAndroid non disponible (fallback):', e);
-
-        // Expérience de repli élégante : RDV Aujourd'hui ou Demain
-        const today = new Date();
-        const tomorrow = new Date();
-        tomorrow.setDate(today.getDate() + 1);
-
-        Alert.alert(
-          '📅 Date du rendez-vous',
-          "Le sélecteur de date visuel nécessite une mise à jour de l'application (recompilation native).\n\nSouhaitez-vous prendre rendez-vous :",
-          [
-            {
-              text: 'Annuler',
-              style: 'cancel',
-              onPress: () => setSelectedGarage(null),
-            },
-            {
-              text: 'Demain',
-              onPress: () => confirmAppointment(garage, tomorrow),
-            },
-            {
-              text: "Aujourd'hui",
-              onPress: () => confirmAppointment(garage, today),
-            },
-          ],
-        );
-      }
-    } else {
-      setShowDatePicker(true);
-    }
+    setShowDatePicker(true);
   };
 
   const confirmAppointment = async (garage: any, date: Date) => {
     try {
       await apiIndividualService.createAppointment({
         mechanic: garage.id,
-        appointment_date: date.toISOString(),
+        appointment_date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
         reason: "Entretien suggéré par OBD Côte d'Ivoire",
         vehicle: dashboardData.vehicle.id,
       });
@@ -471,21 +474,26 @@ const PersonalDashboardScreen = ({navigation}: any) => {
           garage.name
         } pour le ${date.toLocaleDateString('fr-FR')} a été enregistré.`,
       );
-    } catch (error) {
-      console.error('Erreur createAppointment:', error);
-      Alert.alert('Erreur', 'Impossible de prendre le rendez-vous.');
+    } catch (error: any) {
+      const msg = error?.response?.data?.error;
+      if (msg) {
+        Alert.alert('Rendez-vous', msg);
+      }
     } finally {
       setSelectedGarage(null);
     }
   };
 
-  const onDateChange = (event: any, selectedDate?: Date) => {
+  const onDateConfirm = (date: Date) => {
     setShowDatePicker(false);
-    if (event.type === 'set' && selectedDate && selectedGarage) {
-      confirmAppointment(selectedGarage, selectedDate);
-    } else {
-      setSelectedGarage(null);
+    if (selectedGarage) {
+      confirmAppointment(selectedGarage, date);
     }
+  };
+
+  const onDateCancel = () => {
+    setShowDatePicker(false);
+    setSelectedGarage(null);
   };
 
   // Valeur carburant : priorité aux données live OBD, sinon backend
@@ -497,7 +505,7 @@ const PersonalDashboardScreen = ({navigation}: any) => {
 
   // Estimation des économies FCFA (Phase 2)
   const estimatedSavings = avgConsumption
-    ? Math.round(avgConsumption * 0.15 * 100)
+    ? Math.round(avgConsumption * 0.18 * 100)
     : 0;
 
   const renderOBDStatus = () => (
@@ -568,21 +576,57 @@ const PersonalDashboardScreen = ({navigation}: any) => {
     </View>
   );
 
-  const ServiceItem = ({icon, label, color, onPress, badge}: any) => (
-    <TouchableOpacity style={styles.gridItem} onPress={onPress}>
-      <Surface style={styles.gridIconContainer} elevation={1}>
-        <Icon name={icon} size={30} color={color} />
-        {badge > 0 && (
-          <View style={styles.gridBadge}>
-            <Text style={styles.gridBadgeText}>{badge}</Text>
-          </View>
-        )}
-      </Surface>
-      <Text style={styles.gridLabel} numberOfLines={2}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
+  const ServiceItem = ({
+    icon,
+    label,
+    color,
+    onPress,
+    badge,
+    featureCode,
+  }: any) => {
+    const isLocked = featureCode ? !hasFeature(user, featureCode) : false;
+
+    const handlePress = () => {
+      if (isLocked) {
+        Alert.alert(
+          'Option Verrouillée',
+          `L'accès à "${label}" nécessite un plan d'abonnement supérieur. Souhaitez-vous voir nos offres ?`,
+          [
+            {text: 'Plus tard', style: 'cancel'},
+            {
+              text: 'Voir les offres',
+              onPress: () => navigation.navigate('Subscriptions'),
+            },
+          ],
+        );
+      } else {
+        onPress();
+      }
+    };
+
+    return (
+      <TouchableOpacity
+        style={[styles.gridItem, isLocked && {opacity: 0.6}]}
+        onPress={handlePress}>
+        <Surface style={styles.gridIconContainer} elevation={1}>
+          <Icon name={icon} size={30} color={isLocked ? '#9E9E9E' : color} />
+          {isLocked && (
+            <View style={styles.lockBadge}>
+              <Icon name="lock" size={12} color="#fff" />
+            </View>
+          )}
+          {badge > 0 && !isLocked && (
+            <View style={styles.gridBadge}>
+              <Text style={styles.gridBadgeText}>{badge}</Text>
+            </View>
+          )}
+        </Surface>
+        <Text style={styles.gridLabel} numberOfLines={2}>
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
@@ -757,12 +801,14 @@ const PersonalDashboardScreen = ({navigation}: any) => {
                 icon="magnify-scan"
                 label="Scanner"
                 color="#2196F3"
+                featureCode="scan_diagnostic"
                 onPress={() => navigation.navigate('Scan')}
               />
               <ServiceItem
                 icon="file-certificate-outline"
                 label="Expertise"
                 color="#4CAF50"
+                featureCode="expertise_report"
                 onPress={() =>
                   navigation.navigate('Expertise', {
                     vehicle: dashboardData.vehicle,
@@ -773,18 +819,21 @@ const PersonalDashboardScreen = ({navigation}: any) => {
                 icon="calendar-clock"
                 label="Rendez-vous"
                 color="#FF5722"
+                featureCode="appointment_booking"
                 onPress={() => navigation.navigate('Appointments')}
               />
               <ServiceItem
                 icon="map-marker-path"
                 label="Trajets"
                 color="#9C27B0"
+                featureCode="trip_history"
                 onPress={() => navigation.navigate('Trips')}
               />
               <ServiceItem
                 icon="bell-ring-outline"
                 label="Entretiens"
                 color="#FF9800"
+                featureCode="maintenance_reminders"
                 badge={
                   dashboardData?.reminders?.filter((r: any) => !r.is_completed)
                     .length || 0
@@ -796,6 +845,27 @@ const PersonalDashboardScreen = ({navigation}: any) => {
                 label="Abonnement"
                 color="#E91E63"
                 onPress={() => navigation.navigate('Subscriptions')}
+              />
+              <ServiceItem
+                icon="truck-fast-outline"
+                label="Remorquage"
+                color="#F44336"
+                featureCode="towing_service"
+                onPress={() => navigation.navigate('TowTrucks')}
+              />
+              <ServiceItem
+                icon="rocket-launch-outline"
+                label="Nouveautés"
+                color="#00BCD4"
+                featureCode="upcoming_modules"
+                onPress={() => navigation.navigate('UpcomingModules')}
+              />
+              <ServiceItem
+                icon="chart-line"
+                label="Live Data"
+                color="#7C4DFF"
+                featureCode="live_monitor"
+                onPress={() => navigation.navigate('LiveData')}
               />
             </View>
           </View>
@@ -943,41 +1013,17 @@ const PersonalDashboardScreen = ({navigation}: any) => {
           </View>
 
           {/* SOS Remorquage */}
-          <TouchableOpacity
-            style={styles.sosButtonPremium}
-            onPress={() =>
-              Alert.alert('SOS Remorquage', "Besoin d'assistance immédiate ?", [
-                {text: 'Annuler', style: 'cancel'},
-                {text: 'Appeler un dépanneur', onPress: () => {}},
-              ])
-            }>
-            <LinearGradient
-              colors={['#F44336', '#D32F2F']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 0}}
-              style={styles.sosGradient}>
-              <Icon name="truck-delivery" size={24} color="#fff" />
-              <Text style={styles.sosText}>
-                BESOIN D'UN REMORQUAGE ? (SOS 24/7)
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
           <View style={{height: 100}} />
         </View>
       </ScrollView>
 
-      {/* DatePicker pour RDV (iOS uniquement) */}
-      {Platform.OS === 'ios' && showDatePicker && (
-        <DateTimePicker
-          value={new Date()}
-          mode="datetime"
-          is24Hour={true}
-          display="spinner"
-          onChange={onDateChange}
-          minimumDate={new Date()}
-        />
-      )}
+      <DatePickerModal
+        visible={showDatePicker}
+        title={`📅 RDV chez ${selectedGarage?.shop_name || selectedGarage?.name || ''}`}
+        onConfirm={onDateConfirm}
+        onCancel={onDateCancel}
+        minimumDate={new Date()}
+      />
 
       {garageToReview && (
         <ReviewModal
@@ -1300,6 +1346,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: 'bold',
+  },
+  lockBadge: {
+    position: 'absolute',
+    top: -5,
+    left: -5,
+    backgroundColor: '#757575',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   alertSection: {
     marginBottom: 20,

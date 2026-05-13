@@ -2,6 +2,7 @@ import React, {useEffect, useState, useLayoutEffect, useCallback} from 'react';
 import {
   View,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
   Text,
   Alert,
@@ -12,14 +13,22 @@ import {
   Platform,
 } from 'react-native';
 import Geolocation from 'react-native-geolocation-service';
-import {useFocusEffect} from '@react-navigation/native';
+import * as ReactNavigation from '@react-navigation/native';
+const {useFocusEffect} = ReactNavigation;
 import {Avatar, Surface, Card} from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import {Portal, Modal, TextInput, Button, ActivityIndicator} from 'react-native-paper';
+import {
+  Portal,
+  Modal,
+  TextInput,
+  Button,
+  ActivityIndicator,
+} from 'react-native-paper';
 import {useStore} from '../../store/useStore';
 import {apiService} from '../../services/apiService';
 import {obdService} from '../../services/obdService';
 import {notificationSoundService} from '../../services/NotificationSoundService';
+import {hasFeature} from '../../utils/featureControl';
 
 const {width} = Dimensions.get('window');
 
@@ -43,6 +52,7 @@ export const GarageHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
   } = useStore();
 
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [showExpertModal, setShowExpertModal] = useState(false);
   const [specialties, setSpecialties] = useState(user?.specialties || '');
   const [isRegistering, setIsRegistering] = useState(false);
@@ -143,12 +153,13 @@ export const GarageHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           {
-            title: "Permission de localisation",
-            message: "L'application a besoin d'accéder à votre position pour vous enregistrer comme expert sur la carte.",
-            buttonNeutral: "Plus tard",
-            buttonNegative: "Annuler",
-            buttonPositive: "OK"
-          }
+            title: 'Permission de localisation',
+            message:
+              "L'application a besoin d'accéder à votre position pour vous enregistrer comme expert sur la carte.",
+            buttonNeutral: 'Plus tard',
+            buttonNegative: 'Annuler',
+            buttonPositive: 'OK',
+          },
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
       } catch (err) {
@@ -161,85 +172,142 @@ export const GarageHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const handleRegisterAsExpert = async () => {
     const hasPermission = await requestLocationPermission();
     if (!hasPermission) {
-      Alert.alert('Permission refusée', 'La localisation est nécessaire pour cette fonctionnalité.');
+      Alert.alert(
+        'Permission refusée',
+        'La localisation est nécessaire pour cette fonctionnalité.',
+      );
       return;
     }
 
     setIsRegistering(true);
 
     Geolocation.getCurrentPosition(
-      async (position) => {
+      async position => {
         try {
-          const { latitude, longitude } = position.coords;
-          console.log('[handleRegisterAsExpert] Position obtenue:', latitude, longitude);
+          const {latitude, longitude} = position.coords;
+          console.log(
+            '[handleRegisterAsExpert] Position obtenue:',
+            latitude,
+            longitude,
+          );
 
-          const result = await apiService.registerAsExpert(latitude, longitude, specialties, true);
+          const result = await apiService.registerAsExpert(
+            latitude,
+            longitude,
+            specialties,
+            true,
+          );
           if (result) {
             setUser({...user, ...result});
-            Alert.alert('Succès', 'Vous êtes maintenant enregistré comme expert à votre position actuelle !');
+            Alert.alert(
+              'Succès',
+              'Vous êtes maintenant enregistré comme expert à votre position actuelle !',
+            );
             setShowExpertModal(false);
           } else {
-            Alert.alert('Erreur', "Impossible de s'enregistrer comme expert auprès du serveur.");
+            Alert.alert(
+              'Erreur',
+              "Impossible de s'enregistrer comme expert auprès du serveur.",
+            );
           }
         } catch (error) {
-          Alert.alert('Erreur', "Une erreur est survenue lors de l'enregistrement.");
+          Alert.alert(
+            'Erreur',
+            "Une erreur est survenue lors de l'enregistrement.",
+          );
         } finally {
           setIsRegistering(false);
         }
       },
-      (error) => {
+      error => {
         console.error('[handleRegisterAsExpert] Erreur Geolocation:', error);
-        Alert.alert('Erreur GPS', "Impossible d'obtenir votre position exacte. Assurez-vous que le GPS est activé.");
+        Alert.alert(
+          'Erreur GPS',
+          "Impossible d'obtenir votre position exacte. Assurez-vous que le GPS est activé.",
+        );
         setIsRegistering(false);
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      {enableHighAccuracy: true, timeout: 15000, maximumAge: 10000},
     );
   };
 
   const handleDisconnect = async () => {
-    Alert.alert(
-      'Déconnexion',
-      'Voulez-vous déconnecter l\'adaptateur OBD ?',
-      [
-        {text: 'Annuler', style: 'cancel'},
-        {
-          text: 'Déconnecter',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await obdService.disconnect();
-              setConnectedDevice(null);
-              setVehicleInfo({
-                connected: false,
-                brand: null,
-                model: null,
-                protocol: null,
-                vin: null,
-              });
-            } catch (error) {
-              console.error('Erreur déconnexion:', error);
-              // Forcer l'état déconnecté même en cas d'erreur
-              setConnectedDevice(null);
-              setVehicleInfo({connected: false});
-            }
-          },
+    Alert.alert('Déconnexion', "Voulez-vous déconnecter l'adaptateur OBD ?", [
+      {text: 'Annuler', style: 'cancel'},
+      {
+        text: 'Déconnecter',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await obdService.disconnect();
+            setConnectedDevice(null);
+            setVehicleInfo({
+              connected: false,
+              brand: null,
+              model: null,
+              protocol: null,
+              vin: null,
+            });
+          } catch (error) {
+            console.error('Erreur déconnexion:', error);
+            // Forcer l'état déconnecté même en cas d'erreur
+            setConnectedDevice(null);
+            setVehicleInfo({connected: false});
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
   useLayoutEffect(() => {
-    const unreadCount = notifications.filter(n => !n.is_read && n.notification_type === 'CHAT').length;
+    const unreadCount = notifications.filter(
+      n => !n.is_read && n.notification_type === 'CHAT',
+    ).length;
+    const canChat = hasFeature(user, 'internal_messaging');
 
     navigation.setOptions({
       headerLeft: null,
       headerRight: () => (
         <TouchableOpacity
-          onPress={() => navigation.navigate('Chat')}
-          style={{marginRight: 15}}>
+          onPress={() => {
+            if (!canChat) {
+              Alert.alert(
+                'Option Verrouillée',
+                "L'accès à la messagerie interne nécessite un plan d'abonnement supérieur. Souhaitez-vous voir nos offres ?",
+                [
+                  {text: 'Plus tard', style: 'cancel'},
+                  {
+                    text: 'Voir les offres',
+                    onPress: () => navigation.navigate('Subscriptions'),
+                  },
+                ],
+              );
+            } else {
+              navigation.navigate('Chat');
+            }
+          }}
+          style={{marginRight: 15, opacity: canChat ? 1 : 0.6}}>
           <View>
             <Icon name="chat-outline" size={26} color="#fff" />
-            {unreadCount > 0 && (
+            {!canChat && (
+              <View
+                style={{
+                  position: 'absolute',
+                  left: -5,
+                  top: -5,
+                  backgroundColor: '#757575',
+                  borderRadius: 10,
+                  width: 16,
+                  height: 16,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderWidth: 1.5,
+                  borderColor: '#1976D2',
+                }}>
+                <Icon name="lock" size={10} color="#fff" />
+              </View>
+            )}
+            {canChat && unreadCount > 0 && (
               <View
                 style={{
                   position: 'absolute',
@@ -263,7 +331,7 @@ export const GarageHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
         </TouchableOpacity>
       ),
     });
-  }, [navigation, notifications]);
+  }, [navigation, notifications, user]);
 
   const renderConnectionStatus = () => (
     <Surface style={styles.statusCard} elevation={2}>
@@ -329,30 +397,63 @@ export const GarageHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
     </Surface>
   );
 
-  const ActionItem = ({icon, label, color, onPress, badge}: any) => (
-    <TouchableOpacity style={styles.gridItem} onPress={onPress}>
-      <Surface style={styles.gridIconContainer} elevation={1}>
-        <Icon name={icon} size={30} color={color} />
-        {badge > 0 && (
-          <View style={styles.gridBadge}>
-            <Text style={styles.gridBadgeText}>{badge}</Text>
-          </View>
-        )}
-      </Surface>
-      <Text style={styles.gridLabel} numberOfLines={2}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
+  const ActionItem = ({
+    icon,
+    label,
+    color,
+    onPress,
+    badge,
+    featureCode,
+  }: any) => {
+    const isLocked = featureCode ? !hasFeature(user, featureCode) : false;
+
+    const handlePress = () => {
+      if (isLocked) {
+        Alert.alert(
+          'Option Verrouillée',
+          `L'accès à "${label}" nécessite un plan d'abonnement supérieur. Souhaitez-vous voir nos offres ?`,
+          [
+            {text: 'Plus tard', style: 'cancel'},
+            {
+              text: 'Voir les offres',
+              onPress: () => navigation.navigate('Subscriptions'),
+            },
+          ],
+        );
+      } else {
+        onPress();
+      }
+    };
+
+    return (
+      <TouchableOpacity
+        style={[styles.gridItem, isLocked && {opacity: 0.6}]}
+        onPress={handlePress}>
+        <Surface style={styles.gridIconContainer} elevation={1}>
+          <Icon name={icon} size={30} color={isLocked ? '#9E9E9E' : color} />
+          {isLocked && (
+            <View style={styles.lockBadge}>
+              <Icon name="lock" size={12} color="#fff" />
+            </View>
+          )}
+          {badge > 0 && !isLocked && (
+            <View style={styles.gridBadge}>
+              <Text style={styles.gridBadgeText}>{badge}</Text>
+            </View>
+          )}
+        </Surface>
+        <Text style={styles.gridLabel} numberOfLines={2}>
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   const renderQuickActions = () => {
     return (
       <View style={styles.gridSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Services Principaux</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('History')}>
-            <Text style={styles.seeAll}>Historique</Text>
-          </TouchableOpacity>
         </View>
 
         <View style={styles.grid}>
@@ -360,12 +461,20 @@ export const GarageHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
             icon="magnify-scan"
             label="Diagnostic"
             color="#2196F3"
-            onPress={() => navigation.navigate('Scan')}
+            featureCode="scan_diagnostic"
+            onPress={() => {
+              if (obdService.isConnected && vehicleInfo.connected) {
+                navigation.navigate('Scan', {skipConnect: true});
+              } else {
+                navigation.navigate('Scan');
+              }
+            }}
           />
           <ActionItem
             icon="clipboard-text-outline"
             label="Rapports"
             color="#673AB7"
+            featureCode="scan_history"
             badge={unreadScansCount}
             onPress={() => navigation.navigate('History')}
           />
@@ -373,36 +482,48 @@ export const GarageHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
             icon="car-info"
             label="Expertise"
             color="#4CAF50"
+            featureCode="expertise_report"
             onPress={() => navigation.navigate('Expertise')}
           />
           <ActionItem
             icon="calendar-clock"
             label="Rendez-vous"
             color="#FF5722"
+            featureCode="appointment_booking"
             onPress={() => navigation.navigate('Appointments')}
           />
           <ActionItem
             icon="chart-timeline-variant"
             label="Live Data"
             color="#FF9800"
-            onPress={() => navigation.navigate('LiveMonitor')}
+            featureCode="live_monitor"
+            onPress={() => {
+              if (obdService.isConnected && vehicleInfo.connected) {
+                navigation.navigate('LiveMonitor', {skipConnect: true});
+              } else {
+                navigation.navigate('LiveMonitor');
+              }
+            }}
           />
           <ActionItem
             icon="finance"
             label="Mon Bilan"
             color="#E91E63"
+            featureCode="mechanic_dashboard"
             onPress={() => navigation.navigate('Dashboard')}
           />
           <ActionItem
             icon="database-search"
             label="Base DTC"
             color="#607D8B"
+            featureCode="dtc_library"
             onPress={() => navigation.navigate('DTCBase')}
           />
           <ActionItem
             icon="map-marker-star"
             label="Expert Carte"
             color="#F44336"
+            featureCode="register_expert"
             onPress={() => setShowExpertModal(true)}
           />
         </View>
@@ -422,6 +543,7 @@ export const GarageHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
             icon="rocket-launch-outline"
             label="Nouveautés"
             color="#03A9F4"
+            featureCode="upcoming_modules"
             onPress={() => navigation.navigate('UpcomingModules')}
           />
           <ActionItem
@@ -430,16 +552,46 @@ export const GarageHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
             color="#9E9E9E"
             onPress={() => navigation.navigate('Profile')}
           />
+          <ActionItem
+            icon="truck-fast-outline"
+            label="Remorquage"
+            color="#FF5722"
+            featureCode="towing_service"
+            onPress={() => navigation.navigate('TowTrucks')}
+          />
         </View>
       </View>
     );
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const profileData = await apiService.getCurrentUser();
+      if (profileData) {
+        setUser(profileData);
+      }
+      const notifData = await apiService.getNotifications();
+      setNotifications(notifData);
+    } catch (error) {
+      console.error('Error refreshing GarageHome:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [setUser]);
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
+      />
       <ScrollView
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         contentContainerStyle={{paddingBottom: 30}}>
         <LinearGradient
           colors={['#1976D2', '#1565C0', '#0D47A1']}
@@ -455,9 +607,13 @@ export const GarageHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
                 <View style={styles.ratingContainer}>
                   <Icon name="star" size={16} color="#FFD700" />
                   <Text style={styles.ratingText}>
-                    {user?.average_rating > 0 ? user.average_rating.toFixed(1) : '0.0'}
+                    {user?.average_rating > 0
+                      ? user.average_rating.toFixed(1)
+                      : '0.0'}
                   </Text>
-                  <Text style={styles.reviewCount}>({user?.review_count || 0} avis)</Text>
+                  <Text style={styles.reviewCount}>
+                    ({user?.review_count || 0} avis)
+                  </Text>
                 </View>
 
                 {user?.badges && user.badges.length > 0 && (
@@ -514,7 +670,8 @@ export const GarageHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
           contentContainerStyle={styles.modalContent}>
           <Text style={styles.modalTitle}>Devenir Expert sur la Carte</Text>
           <Text style={styles.modalSubtitle}>
-            En vous enregistrant, les automobilistes en panne à proximité pourront vous trouver et vous contacter.
+            En vous enregistrant, les automobilistes en panne à proximité
+            pourront vous trouver et vous contacter.
           </Text>
 
           <TextInput
@@ -554,7 +711,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   headerGradient: {
-    paddingTop: 20,
+    paddingTop: Platform.OS === 'ios' ? 20 : 10,
     paddingBottom: 40,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
@@ -576,7 +733,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
-    marginTop: 2,
+    marginTop: 0,
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -782,6 +939,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     paddingHorizontal: 4,
+  },
+  lockBadge: {
+    position: 'absolute',
+    top: -5,
+    left: -5,
+    backgroundColor: '#757575',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   modalContent: {
     backgroundColor: 'white',

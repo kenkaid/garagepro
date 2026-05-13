@@ -8,6 +8,7 @@ import {HistoryScreen} from '../screens/garage/HistoryScreen';
 import {DashboardScreen} from '../screens/garage/DashboardScreen';
 import {LiveMonitorScreen} from '../screens/garage/LiveMonitorScreen';
 import {ExpertiseScreen} from '../screens/garage/ExpertiseScreen';
+import {ExpertScanScreen} from '../screens/garage/ExpertScanScreen';
 import {DTCBaseScreen} from '../screens/garage/DTCBaseScreen';
 import {ProfileScreen} from '../screens/shared/ProfileScreen';
 import {SubscriptionScreen} from '../screens/shared/SubscriptionScreen';
@@ -17,6 +18,7 @@ import {ChatScreen} from '../screens/shared/ChatScreen';
 import {ChatDetailScreen} from '../screens/shared/ChatDetailScreen';
 import {SendResultsScreen} from '../screens/garage/SendResultsScreen';
 import {AppointmentsScreen} from '../screens/shared/AppointmentsScreen';
+import {TowTrucksScreen} from '../screens/shared/TowTrucksScreen';
 
 const Stack = createStackNavigator();
 
@@ -45,7 +47,7 @@ export const ProNavigator = () => (
     <Stack.Screen
       name="ExpertResults"
       component={ExpertResultsScreen}
-      options={{title: 'Rapport Expertise'}}
+      options={{title: 'Rapport Certification'}}
     />
     <Stack.Screen
       name="History"
@@ -65,7 +67,12 @@ export const ProNavigator = () => (
     <Stack.Screen
       name="Expertise"
       component={ExpertiseScreen}
-      options={{title: 'Expertise Occasion'}}
+      options={{title: 'Certification Kilométrique'}}
+    />
+    <Stack.Screen
+      name="ExpertScan"
+      component={ExpertScanScreen}
+      options={{title: 'Scan Expert', headerShown: false}}
     />
     <Stack.Screen
       name="DTCBase"
@@ -111,6 +118,11 @@ export const ProNavigator = () => (
       name="Appointments"
       component={AppointmentsScreen}
       options={{title: 'Mes Rendez-vous'}}
+    />
+    <Stack.Screen
+      name="TowTrucks"
+      component={TowTrucksScreen}
+      options={{title: 'Service de Remorquage'}}
     />
   </Stack.Navigator>
 );

@@ -1,10 +1,11 @@
-import React, {useEffect} from 'react';
-import {View, ScrollView, TouchableOpacity, Text, Alert} from 'react-native';
+import React, {useEffect, useState, useCallback} from 'react';
+import {View, ScrollView, RefreshControl, TouchableOpacity, Text, Alert} from 'react-native';
 import {Avatar} from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useStore} from '../../store/useStore.ts';
 import {apiService} from '../../services/apiService.ts';
 import {FleetStyles} from '../../styles/fleetTheme.ts';
+import {hasFeature} from '../../utils/featureControl';
 
 export const FleetHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
   const {
@@ -15,6 +16,22 @@ export const FleetHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
     setConnectedDevice,
     setVehicleInfo,
   } = useStore();
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const data = await apiService.getCurrentUser();
+      if (data) {
+        setUser(data);
+      }
+    } catch (error) {
+      console.error('Error refreshing FleetHome:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [setUser]);
 
   useEffect(() => {
     setCurrentScreen('home');
@@ -89,91 +106,166 @@ export const FleetHomeScreen: React.FC<{navigation: any}> = ({navigation}) => {
     </View>
   );
 
-  const renderQuickActions = () => (
-    <View style={FleetStyles.grid}>
-      <TouchableOpacity
-        style={FleetStyles.menuItem}
-        onPress={() => navigation.navigate('FleetDashboard')}>
-        <View style={FleetStyles.menuIconContainer}>
-          <Icon name="truck-delivery-outline" size={32} color="#004BA0" />
-        </View>
-        <Text style={FleetStyles.menuLabel}>Ma Flotte</Text>
-      </TouchableOpacity>
+  const renderQuickActions = () => {
+    const checkAccess = (featureCode: string, label: string, action: () => void) => {
+      if (!hasFeature(user, featureCode)) {
+        Alert.alert(
+          'Option Verrouillée',
+          `L'accès à "${label}" nécessite un plan Flotte supérieur. Souhaitez-vous voir nos offres ?`,
+          [
+            {text: 'Plus tard', style: 'cancel'},
+            {
+              text: 'Voir les offres',
+              onPress: () => navigation.navigate('FleetSubscriptions'),
+            },
+          ],
+        );
+      } else {
+        action();
+      }
+    };
 
-      <TouchableOpacity
-        style={FleetStyles.menuItem}
-        onPress={() => navigation.navigate('FleetHistory')}>
-        <View style={FleetStyles.menuIconContainer}>
-          <Icon name="clipboard-text-clock-outline" size={32} color="#004BA0" />
-        </View>
-        <Text style={FleetStyles.menuLabel}>Journal de bord</Text>
-      </TouchableOpacity>
+    return (
+      <View style={FleetStyles.grid}>
+        <TouchableOpacity
+          style={FleetStyles.menuItem}
+          onPress={() =>
+            checkAccess('fleet_management', 'Ma Flotte', () =>
+              navigation.navigate('FleetDashboard'),
+            )
+          }>
+          <View style={FleetStyles.menuIconContainer}>
+            <Icon name="truck-delivery-outline" size={32} color="#004BA0" />
+            {!hasFeature(user, 'fleet_management') && (
+              <View style={FleetStyles.lockOverlay}>
+                <Icon name="lock" size={16} color="#fff" />
+              </View>
+            )}
+          </View>
+          <Text style={FleetStyles.menuLabel}>Ma Flotte</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={FleetStyles.menuItem}
-        onPress={() => navigation.navigate('FleetPrediction')}>
-        <View style={FleetStyles.menuIconContainerPrediction}>
-          <Icon name="crystal-ball" size={32} color="#3F51B5" />
-        </View>
-        <Text style={FleetStyles.menuLabel}>Prédictions Pannes</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={FleetStyles.menuItem}
+          onPress={() =>
+            checkAccess('fleet_history', 'Journal de bord', () =>
+              navigation.navigate('FleetHistory'),
+            )
+          }>
+          <View style={FleetStyles.menuIconContainer}>
+            <Icon
+              name="clipboard-text-clock-outline"
+              size={32}
+              color="#004BA0"
+            />
+            {!hasFeature(user, 'fleet_history') && (
+              <View style={FleetStyles.lockOverlay}>
+                <Icon name="lock" size={16} color="#fff" />
+              </View>
+            )}
+          </View>
+          <Text style={FleetStyles.menuLabel}>Journal de bord</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={FleetStyles.menuItem}
-        onPress={() => navigation.navigate('Expertise')}>
-        <View style={FleetStyles.menuIconContainerExpertise}>
-          <Icon name="shield-check-outline" size={32} color="#4CAF50" />
-        </View>
-        <Text style={FleetStyles.menuLabel}>Expertise Occasion</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={FleetStyles.menuItem}
+          onPress={() =>
+            checkAccess('ai_predictive_maintenance', 'Prédictions Pannes', () =>
+              navigation.navigate('FleetPrediction'),
+            )
+          }>
+          <View style={FleetStyles.menuIconContainerPrediction}>
+            <Icon name="crystal-ball" size={32} color="#3F51B5" />
+            {!hasFeature(user, 'ai_predictive_maintenance') && (
+              <View style={FleetStyles.lockOverlay}>
+                <Icon name="lock" size={16} color="#fff" />
+              </View>
+            )}
+          </View>
+          <Text style={FleetStyles.menuLabel}>Prédictions Pannes</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={FleetStyles.menuItem}
-        onPress={() => {
-          if (user?.is_trial) {
-            Alert.alert(
-              "Période d'essai active",
-              'Vous profitez actuellement de toutes les fonctionnalités Premium gratuitement. Souhaitez-vous voir nos autres offres pour la suite ?',
-              [
-                {text: 'Plus tard', style: 'cancel'},
-                {
-                  text: 'Voir les offres',
-                  onPress: () => navigation.navigate('FleetSubscriptions'),
-                },
-              ],
-            );
-          } else {
-            navigation.navigate('FleetSubscriptions');
-          }
-        }}>
-        <View style={FleetStyles.menuIconContainerSubscriptions}>
-          <Icon name="star-outline" size={32} color="#FBC02D" />
-        </View>
-        <Text style={FleetStyles.menuLabel}>Offres Flotte</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={FleetStyles.menuItem}
+          onPress={() =>
+            checkAccess('expertise_report', 'Expertise Occasion', () =>
+              navigation.navigate('Expertise'),
+            )
+          }>
+          <View style={FleetStyles.menuIconContainerExpertise}>
+            <Icon name="shield-check-outline" size={32} color="#4CAF50" />
+            {!hasFeature(user, 'expertise_report') && (
+              <View style={FleetStyles.lockOverlay}>
+                <Icon name="lock" size={16} color="#fff" />
+              </View>
+            )}
+          </View>
+          <Text style={FleetStyles.menuLabel}>Expertise Occasion</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={FleetStyles.menuItem}
-        onPress={() => navigation.navigate('UpcomingModules')}>
-        <View style={FleetStyles.menuIconContainer}>
-          <Icon name="robot-outline" size={32} color="#004BA0" />
-        </View>
-        <Text style={FleetStyles.menuLabel}>Modules IA</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={FleetStyles.menuItem}
+          onPress={() => navigation.navigate('FleetSubscriptions')}>
+          <View style={FleetStyles.menuIconContainerSubscriptions}>
+            <Icon name="star-outline" size={32} color="#FBC02D" />
+          </View>
+          <Text style={FleetStyles.menuLabel}>Offres Flotte</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={FleetStyles.menuItem}
-        onPress={() => navigation.navigate('Profile')}>
-        <View style={FleetStyles.menuIconContainer}>
-          <Icon name="account-cog-outline" size={32} color="#004BA0" />
-        </View>
-        <Text style={FleetStyles.menuLabel}>Mon Compte</Text>
-      </TouchableOpacity>
-    </View>
-  );
+        <TouchableOpacity
+          style={FleetStyles.menuItem}
+          onPress={() =>
+            checkAccess('upcoming_modules', 'Modules IA', () =>
+              navigation.navigate('UpcomingModules'),
+            )
+          }>
+          <View style={FleetStyles.menuIconContainer}>
+            <Icon name="robot-outline" size={32} color="#004BA0" />
+            {!hasFeature(user, 'upcoming_modules') && (
+              <View style={FleetStyles.lockOverlay}>
+                <Icon name="lock" size={16} color="#fff" />
+              </View>
+            )}
+          </View>
+          <Text style={FleetStyles.menuLabel}>Modules IA</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={FleetStyles.menuItem}
+          onPress={() =>
+            checkAccess('internal_messaging', 'Messagerie', () =>
+              navigation.navigate('Chat'),
+            )
+          }>
+          <View style={FleetStyles.menuIconContainerChat}>
+            <Icon name="chat-processing-outline" size={32} color="#009688" />
+            {!hasFeature(user, 'internal_messaging') && (
+              <View style={FleetStyles.lockOverlay}>
+                <Icon name="lock" size={16} color="#fff" />
+              </View>
+            )}
+          </View>
+          <Text style={FleetStyles.menuLabel}>Messagerie</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={FleetStyles.menuItem}
+          onPress={() => navigation.navigate('Profile')}>
+          <View style={FleetStyles.menuIconContainer}>
+            <Icon name="account-cog-outline" size={32} color="#004BA0" />
+          </View>
+          <Text style={FleetStyles.menuLabel}>Mon Compte</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
-    <ScrollView style={FleetStyles.container}>
+    <ScrollView
+      style={FleetStyles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }>
       <View style={FleetStyles.header}>
         <View
           style={{

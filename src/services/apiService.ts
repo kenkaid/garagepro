@@ -2,10 +2,11 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {BASE_URL} from '../config/serverConfig';
+import dtcLocalData from '../data/dtc_local.json';
 
 export const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -28,12 +29,9 @@ api.interceptors.response.use(
   response => response,
   async error => {
     if (error.response?.status === 401) {
-      const token = await AsyncStorage.getItem('auth_token');
-      if (token) {
-        console.warn('Session expirée (401). Déconnexion...');
-        await AsyncStorage.removeItem('auth_token');
-        // On pourrait ici ajouter une redirection globale via un EventEmitter ou le Store
-      }
+      // Ne PAS supprimer le token automatiquement pour toutes les requêtes.
+      // Cela évite de déconnecter l'utilisateur si une requête de synchro échoue.
+      console.warn('[apiService] 401 Unauthorized sur:', error.config?.url);
     }
     return Promise.reject(error);
   },
@@ -182,17 +180,67 @@ class APIService {
     }
   }
 
-  async getScanHistory(): Promise<any[]> {
+  async getScanHistory(page: number = 1): Promise<{results: any[]; count: number; next: string | null}> {
     const token = await AsyncStorage.getItem('auth_token');
+
+    // Sans token, on ne peut que retourner les scans locaux
     if (!token) {
-      return [];
+      console.log('[apiService] Pas de token — retour des scans locaux uniquement.');
+      const local = await this.getLocalScans();
+      return {results: local, count: local.length, next: null};
     }
 
+    // Avec token, on tente le serveur
     try {
-      const response = await api.get('/scans/');
-      return response.data;
-    } catch (error) {
-      return this.getLocalScans();
+      console.log(`[apiService] Tentative de récupération serveur (/scans/?page=${page})...`);
+      const response = await api.get(`/scans/?page=${page}`);
+
+      // Support de la pagination DRF : { count, next, previous, results }
+      let serverScans: any[] = [];
+      let totalCount = 0;
+      let nextUrl: string | null = null;
+
+      if (response.data && Array.isArray(response.data.results)) {
+        serverScans = response.data.results;
+        totalCount = response.data.count || 0;
+        nextUrl = response.data.next || null;
+      } else if (Array.isArray(response.data)) {
+        serverScans = response.data;
+        totalCount = serverScans.length;
+      }
+
+      console.log(`[apiService] ✅ ${serverScans.length} scan(s) reçu(s) (Total: ${totalCount}).`);
+
+      // Si c'est la première page, on ajoute les scans locaux non synchronisés
+      if (page === 1) {
+        const localScans = await this.getLocalScans();
+        const safeLocalScans = Array.isArray(localScans) ? localScans : [];
+        if (safeLocalScans.length > 0) {
+          console.log(`[apiService] ${safeLocalScans.length} scan(s) local(aux) non synchronisé(s) ajoutés à la page 1.`);
+          return {
+            results: [...safeLocalScans, ...serverScans],
+            count: totalCount + safeLocalScans.length,
+            next: nextUrl,
+          };
+        }
+      }
+
+      return {results: serverScans, count: totalCount, next: nextUrl};
+    } catch (error: any) {
+      if (error?.response) {
+        console.warn(`[apiService] ⚠️ Erreur HTTP ${error.response.status} sur /scans/.`);
+      } else {
+        console.warn(`[apiService] ⚠️ Serveur inaccessible (${error?.message}).`);
+      }
+
+      // En cas d'erreur, on garantit un objet de retour valide pour la pagination
+      let results: any[] = [];
+      if (page === 1) {
+        const local = await this.getLocalScans();
+        results = Array.isArray(local) ? local : [];
+      }
+
+      return {results, count: results.length, next: null};
     }
   }
 
@@ -211,10 +259,31 @@ class APIService {
   }
 
   // Stockage local (Offline mode)
-  private async saveScanLocally(scan: any): Promise<void> {
+  async saveScanLocally(scan: any): Promise<any> {
     const existing = await this.getLocalScans();
-    existing.push(scan);
+
+    // Créer un scan formaté pour l'affichage local si c'est un nouveau scan
+    const localScan = {
+      ...scan,
+      id: scan.id || `local_${Date.now()}`,
+      local_timestamp: Date.now(),
+      created_at: scan.created_at || new Date().toISOString(),
+      is_local: true,
+      // S'assurer que les codes DTC sont au bon format pour l'affichage
+      found_dtcs: scan.dtc_codes || scan.found_dtcs || [],
+      date: scan.date || new Date().toISOString(),
+    };
+
+    // Si on met à jour un scan local existant
+    const index = existing.findIndex((s: any) => s.id === localScan.id);
+    if (index >= 0) {
+      existing[index] = localScan;
+    } else {
+      existing.push(localScan);
+    }
+
     await AsyncStorage.setItem('local_scans', JSON.stringify(existing));
+    return localScan;
   }
 
   private async getLocalScans(): Promise<any[]> {
@@ -230,11 +299,13 @@ class APIService {
     const remainingScans = [];
 
     for (const scan of localScans) {
-      const result = await this.saveScan(scan);
+      // Pour la synchronisation, on nettoie l'ID local temporaire et les flags
+      const {id, is_local, local_timestamp, ...cleanScan} = scan;
+      // On tente de sauvegarder
+      const result = await this.saveScan(cleanScan);
       if (result) {
         syncedCount++;
       } else {
-        // @ts-ignore
         remainingScans.push(scan);
       }
     }
@@ -397,6 +468,25 @@ class APIService {
     }
   }
 
+  async confirmTestPayment(
+    paymentId: number,
+    transactionId: string,
+  ): Promise<any | null> {
+    const token = await this.getToken();
+    if (!token) return null;
+
+    try {
+      const response = await api.post('/subscriptions/confirm_test_payment/', {
+        payment_id: paymentId,
+        transaction_id: transactionId,
+      });
+      return response.data;
+    } catch (error) {
+      console.error('[DEBUG_LOG] confirmTestPayment error:', error);
+      return null;
+    }
+  }
+
   async logout(): Promise<void> {
     // On vide le token en mémoire et en storage immédiatement
     // pour que les polling asynchrones voient qu'il n'y a plus de session.
@@ -435,6 +525,22 @@ class APIService {
 
   // Base de données DTC
   async getDTCReferences(query?: string, brand?: string): Promise<any[]> {
+    // Consultation de la base locale en priorité pour le mode offline/vitesse
+    if (query) {
+      const upperQuery = query.toUpperCase();
+      // @ts-ignore
+      const localDescription = dtcLocalData[upperQuery];
+      if (localDescription) {
+        return [
+          {
+            code: upperQuery,
+            meaning: localDescription,
+            is_local: true,
+          },
+        ];
+      }
+    }
+
     const token = await AsyncStorage.getItem('auth_token');
     if (!token) return [];
 
@@ -545,7 +651,11 @@ class APIService {
       return response.data;
     } catch (error: any) {
       if (error?.response?.status === 401) return []; // Évite les logs d'erreurs lors du logout
-      console.error('[getNotifications] ERREUR:', error?.response?.status, error?.message);
+      console.error(
+        '[getNotifications] ERREUR:',
+        error?.response?.status,
+        error?.message,
+      );
       return [];
     }
   }
@@ -579,19 +689,28 @@ class APIService {
       const token = await this.getToken();
       if (!token) return 0;
 
-      const url = type ? `/notifications/unread_count/?type=${type}` : '/notifications/unread_count/';
+      const url = type
+        ? `/notifications/unread_count/?type=${type}`
+        : '/notifications/unread_count/';
       const response = await api.get(url);
       console.log('[unread_count] response:', response.data);
       return response.data.unread_count || 0;
     } catch (error: any) {
       if (error?.response?.status === 401) return 0; // Évite les logs d'erreurs lors du logout
-      console.error('[unread_count] ERREUR:', error?.response?.status, error?.message);
+      console.error(
+        '[unread_count] ERREUR:',
+        error?.response?.status,
+        error?.message,
+      );
       return 0;
     }
   }
 
   // Messagerie / Chat
-  async getMessages(appointmentId?: number, otherUserId?: number): Promise<any[]> {
+  async getMessages(
+    appointmentId?: number,
+    otherUserId?: number,
+  ): Promise<any[]> {
     try {
       let url = '/messages/';
       const params = [];
@@ -619,7 +738,10 @@ class APIService {
     }
   }
 
-  async markChatAsRead(params: {appointment_id?: number; other_user_id?: number}): Promise<boolean> {
+  async markChatAsRead(params: {
+    appointment_id?: number;
+    other_user_id?: number;
+  }): Promise<boolean> {
     try {
       await api.post('/messages/mark_as_read/', params);
       return true;
@@ -629,22 +751,37 @@ class APIService {
     }
   }
 
-  async analyzeDTCs(dtcCodes: string[], vehicleInfo?: {brand?: string; model?: string; year?: number}): Promise<any> {
+  async analyzeDTCs(
+    dtcCodes: string[],
+    vehicleInfo?: {brand?: string; model?: string; year?: number},
+  ): Promise<any> {
     try {
       const body: any = {dtc_codes: dtcCodes};
       if (vehicleInfo) body.vehicle_info = vehicleInfo;
       const response = await api.post('/scans/analyze_dtcs/', body);
       return response.data;
     } catch (error: any) {
-      console.error('[analyzeDTCs] Erreur:', error?.response?.status, error?.message);
+      console.error(
+        '[analyzeDTCs] Erreur:',
+        error?.response?.status,
+        error?.message,
+      );
       return null;
     }
   }
 
-  async analyzeLive(pids: {pid: string; value: number; unit?: string}[], vehicleId?: number): Promise<any> {
+  async analyzeLive(
+    pids: {pid: string; value: number; unit?: string}[],
+    vehicleId?: number | string,
+    pidHistory?: Record<string, number>[],
+  ): Promise<any> {
     try {
       const body: any = {pids};
       if (vehicleId) body.vehicle_id = vehicleId;
+      // Envoyer les 20 derniers snapshots pour l'analyse temporelle des tendances
+      if (pidHistory && pidHistory.length >= 10) {
+        body.pid_history = pidHistory.slice(-20);
+      }
       const response = await api.post('/scans/analyze_live/', body);
       return response.data;
     } catch (error: any) {
@@ -653,9 +790,27 @@ class APIService {
     }
   }
 
+  async recordLiveSnapshot(
+    pids: {pid: string; value: number; unit?: string}[],
+    vehicleId: number | string,
+    anomalyResult?: any,
+  ): Promise<any> {
+    try {
+      const body: any = {pids, vehicle_id: vehicleId};
+      if (anomalyResult) body.anomaly_result = anomalyResult;
+      const response = await api.post('/scans/record_live_snapshot/', body);
+      return response.data;
+    } catch (error: any) {
+      console.error('[recordLiveSnapshot] Erreur:', error?.response?.status, error?.message);
+      return null;
+    }
+  }
+
   async searchClients(query: string): Promise<any[]> {
     try {
-      const response = await api.get(`/clients/search/?q=${encodeURIComponent(query)}`);
+      const response = await api.get(
+        `/clients/search/?q=${encodeURIComponent(query)}`,
+      );
       return response.data;
     } catch (error) {
       console.error('[searchClients] Erreur:', error);
@@ -668,12 +823,20 @@ class APIService {
       const response = await api.patch(`/scans/${scanId}/`, data);
       return response.data;
     } catch (error: any) {
-      console.error('[updateScan] Erreur:', error?.response?.status, error?.message);
+      console.error(
+        '[updateScan] Erreur:',
+        error?.response?.status,
+        error?.message,
+      );
       return null;
     }
   }
 
-  async sendMessage(receiverId: number, message: string, appointmentId?: number): Promise<any> {
+  async sendMessage(
+    receiverId: number,
+    message: string,
+    appointmentId?: number,
+  ): Promise<any> {
     try {
       if (!receiverId) {
         console.error('[sendMessage] receiverId est undefined ou null !');
@@ -708,9 +871,15 @@ class APIService {
     }
   }
 
-  async updateAppointmentStatus(appointmentId: number, status: string): Promise<any> {
+  async updateAppointmentStatus(
+    appointmentId: number,
+    status: string,
+  ): Promise<any> {
     try {
-      const response = await api.patch(`/appointments/${appointmentId}/change_status/`, {status});
+      const response = await api.patch(
+        `/appointments/${appointmentId}/change_status/`,
+        {status},
+      );
       return response.data;
     } catch (error) {
       console.error('[updateAppointmentStatus] Erreur:', error);
@@ -719,7 +888,12 @@ class APIService {
   }
 
   // Experts / Géolocalisation
-  async registerAsExpert(latitude: number, longitude: number, specialties: string, isExpert: boolean = true): Promise<any> {
+  async registerAsExpert(
+    latitude: number,
+    longitude: number,
+    specialties: string,
+    isExpert: boolean = true,
+  ): Promise<any> {
     try {
       const response = await api.post('/users/register_expert/', {
         latitude,
@@ -729,38 +903,84 @@ class APIService {
       });
       return response.data;
     } catch (error: any) {
-      console.error('[registerAsExpert] Erreur:', error?.response?.status, error?.message);
+      console.error(
+        '[registerAsExpert] Erreur:',
+        error?.response?.status,
+        error?.message,
+      );
       return null;
     }
   }
 
-  async getNearbyMechanics(lat: number, lng: number, radius: number = 20): Promise<any[]> {
+  async getNearbyMechanics(
+    lat: number,
+    lng: number,
+    radius: number = 20,
+  ): Promise<any[]> {
     try {
-      const response = await api.get(`/users/nearby/?lat=${lat}&lng=${lng}&radius=${radius}`);
+      const response = await api.get(
+        `/users/nearby/?lat=${lat}&lng=${lng}&radius=${radius}`,
+      );
       return response.data;
     } catch (error: any) {
-      console.error('[getNearbyMechanics] Erreur:', error?.response?.status, error?.message);
+      console.error(
+        '[getNearbyMechanics] Erreur:',
+        error?.response?.status,
+        error?.message,
+      );
       return [];
     }
   }
 
-  async getNearbySparePartStores(lat: number, lng: number, radius: number = 20): Promise<any[]> {
+  async getNearbySparePartStores(
+    lat: number,
+    lng: number,
+    radius: number = 20,
+  ): Promise<any[]> {
     try {
-      const response = await api.get(`/spare-part-stores/nearby/?lat=${lat}&lng=${lng}&radius=${radius}`);
+      const response = await api.get(
+        `/spare-part-stores/nearby/?lat=${lat}&lng=${lng}&radius=${radius}`,
+      );
       return response.data;
     } catch (error: any) {
-      console.error('[getNearbySparePartStores] Erreur:', error?.response?.status, error?.message);
+      console.error(
+        '[getNearbySparePartStores] Erreur:',
+        error?.response?.status,
+        error?.message,
+      );
       return [];
     }
   }
 
   async getSpareParts(dtcCode?: string): Promise<any[]> {
     try {
-      const url = dtcCode ? `/spare-parts/?dtc_code=${dtcCode}` : '/spare-parts/';
+      const url = dtcCode
+        ? `/spare-parts/?dtc_code=${dtcCode}`
+        : '/spare-parts/';
       const response = await api.get(url);
       return response.data;
     } catch (error: any) {
-      console.error('[getSpareParts] Erreur:', error?.response?.status, error?.message);
+      console.error(
+        '[getSpareParts] Erreur:',
+        error?.response?.status,
+        error?.message,
+      );
+      return [];
+    }
+  }
+
+  // Tow Trucks
+  async getTowTrucks(city?: string): Promise<any[]> {
+    try {
+      const url = city ? `/tow-trucks/?city=${city}` : '/tow-trucks/';
+      const response = await api.get(url);
+      return response.data;
+    } catch (error: any) {
+      console.error(
+        '[getTowTrucks] Erreur:',
+        error?.response?.status,
+        error?.message,
+      );
       return [];
     }
   }

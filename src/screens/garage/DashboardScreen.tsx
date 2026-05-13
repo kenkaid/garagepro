@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {View, StyleSheet, ScrollView, RefreshControl, Dimensions, Text as RNText} from 'react-native';
+import {View, StyleSheet, ScrollView, RefreshControl, Dimensions, Platform, Text as RNText} from 'react-native';
 import {Card, Avatar, List, Surface, Text} from 'react-native-paper';
 import {apiService} from '../../services/apiService';
 import {useStore} from '../../store/useStore';
@@ -25,7 +25,7 @@ export const DashboardScreen: React.FC = () => {
   }, []);
 
   // Calcul pour le graphique en barres
-  const maxRevenue = report?.monthly_history 
+  const maxRevenue = report?.monthly_history
     ? Math.max(...report.monthly_history.map((h: any) => h.revenue), 1000)
     : 1000;
 
@@ -65,7 +65,7 @@ export const DashboardScreen: React.FC = () => {
               <Avatar.Icon size={40} icon="trending-up" style={styles.iconGreen} />
               <RNText style={styles.smallLabel}>MOYENNE / SCAN</RNText>
               <Text variant="titleLarge" style={styles.smallValue}>
-                {report?.total_scans_completed > 0 
+                {report?.total_scans_completed > 0
                   ? Math.round(report.total_revenue / report.total_scans_completed).toLocaleString()
                   : '0'}
               </Text>
@@ -79,11 +79,11 @@ export const DashboardScreen: React.FC = () => {
         <View style={styles.chartContainer}>
           {report?.monthly_history?.map((item: any, index: number) => (
             <View key={index} style={styles.barWrapper}>
-              <View 
+              <View
                 style={[
-                  styles.bar, 
+                  styles.bar,
                   { height: (item.revenue / maxRevenue) * 100 + 5 }
-                ]} 
+                ]}
               />
               <RNText style={styles.barLabel}>{item.month}</RNText>
             </View>
@@ -129,6 +129,7 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 20 : 10,
     backgroundColor: '#1976D2',
     alignItems: 'center',
   },

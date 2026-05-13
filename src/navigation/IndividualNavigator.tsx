@@ -8,6 +8,7 @@ import {ProfileScreen} from '../screens/shared/ProfileScreen';
 import {SubscriptionScreen} from '../screens/shared/SubscriptionScreen';
 import {UpcomingModulesScreen} from '../screens/shared/UpcomingModulesScreen';
 import {ExpertiseScreen} from '../screens/individual/ExpertiseScreen';
+import {ExpertScanScreen} from '../screens/garage/ExpertScanScreen';
 import {ScanScreen} from '../screens/individual/ScanScreen';
 import {ResultsScreen} from '../screens/individual/ResultsScreen';
 import {ExpertResultsScreen} from '../screens/individual/ExpertResultsScreen';
@@ -17,7 +18,9 @@ import MaintenanceRemindersScreen from '../screens/individual/MaintenanceReminde
 import {ChatScreen} from '../screens/shared/ChatScreen';
 import {ChatDetailScreen} from '../screens/shared/ChatDetailScreen';
 import {AppointmentsScreen} from '../screens/shared/AppointmentsScreen';
+import {TowTrucksScreen} from '../screens/shared/TowTrucksScreen';
 import IndividualNotificationsScreen from '../screens/individual/IndividualNotificationsScreen';
+import LiveDataScreen from '../screens/individual/LiveDataScreen';
 
 const Stack = createStackNavigator();
 
@@ -61,7 +64,7 @@ export const IndividualNavigator = () => (
     <Stack.Screen
       name="Expertise"
       component={ExpertiseScreen}
-      options={{title: 'Expertise Occasion'}}
+      options={{title: 'Certification Kilométrique'}}
     />
     <Stack.Screen
       name="Scan"
@@ -76,7 +79,12 @@ export const IndividualNavigator = () => (
     <Stack.Screen
       name="ExpertResults"
       component={ExpertResultsScreen}
-      options={{title: 'Rapport Expertise'}}
+      options={{title: 'Rapport Certification'}}
+    />
+    <Stack.Screen
+      name="ExpertScan"
+      component={ExpertScanScreen}
+      options={{title: 'Scan Expert', headerShown: false}}
     />
     <Stack.Screen
       name="UpcomingModules"
@@ -117,6 +125,16 @@ export const IndividualNavigator = () => (
       name="Appointments"
       component={AppointmentsScreen}
       options={{title: 'Mes Rendez-vous'}}
+    />
+    <Stack.Screen
+      name="TowTrucks"
+      component={TowTrucksScreen}
+      options={{title: 'Service de Remorquage'}}
+    />
+    <Stack.Screen
+      name="LiveData"
+      component={LiveDataScreen}
+      options={{title: 'Données Live'}}
     />
   </Stack.Navigator>
 );

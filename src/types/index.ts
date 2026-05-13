@@ -190,6 +190,9 @@ export interface User {
   /** Type d'utilisateur (Nouveau) */
   user_type?: 'MECHANIC' | 'FLEET_OWNER' | 'INDIVIDUAL';
 
+  /** Liste des codes de fonctionnalités autorisées (Nouveau) */
+  features?: string[];
+
   /** Champs legacy (compatibilité) */
   name?: string;
   shopName?: string;

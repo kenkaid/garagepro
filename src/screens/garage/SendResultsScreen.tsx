@@ -15,9 +15,10 @@ export const SendResultsScreen: React.FC<{navigation: any; route: any}> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
 
-  // Nouveaux états pour les coûts
+  // Nouveaux états pour les coûts et notes
   const [laborCost, setLaborCost] = useState(String(scan.actual_labor_cost || ''));
   const [partsCost, setPartsCost] = useState(String(scan.actual_parts_cost || ''));
+  const [notes, setNotes] = useState(scan.notes || '');
 
   // Génération du texte du rapport
   const generateReportText = () => {
@@ -40,6 +41,10 @@ export const SendResultsScreen: React.FC<{navigation: any; route: any}> = ({
       text += `🤖 *Analyse IA:* ${scan.ai_predictions.summary.verdict}\n\n`;
     }
 
+    if (notes) {
+      text += `💡 *Conseils du mécanicien:*\n${notes}\n\n`;
+    }
+
     const lCost = parseInt(laborCost) || 0;
     const pCost = parseInt(partsCost) || 0;
     const totalCost = lCost + pCost;
@@ -58,10 +63,11 @@ export const SendResultsScreen: React.FC<{navigation: any; route: any}> = ({
   const saveCosts = async () => {
     const lCost = parseInt(laborCost) || 0;
     const pCost = parseInt(partsCost) || 0;
-    if (lCost !== scan.actual_labor_cost || pCost !== scan.actual_parts_cost) {
+    if (lCost !== scan.actual_labor_cost || pCost !== scan.actual_parts_cost || notes !== scan.notes) {
       await apiService.updateScan(scan.id, {
         actual_labor_cost: lCost,
         actual_parts_cost: pCost,
+        notes: notes,
       });
     }
   };
@@ -104,21 +110,21 @@ export const SendResultsScreen: React.FC<{navigation: any; route: any}> = ({
     setLoading(true);
     await saveCosts();
     setLoading(false);
-    
+
     const message = generateReportText();
     const phone = selectedClient?.phone || '';
     // Formatage numéro pour WhatsApp (enlever espaces, ajouter indicatif si besoin)
     // wa.me attend un numéro international sans le + initial
     let cleanPhone = phone.replace(/\D/g, '');
-    
+
     // Si le numéro commence par 0, on suppose que c'est un numéro local (Côte d'Ivoire +225)
     // Note: adapter selon le pays par défaut si nécessaire
     if (cleanPhone.startsWith('0')) {
       cleanPhone = '225' + cleanPhone;
     }
-    
+
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-    
+
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
@@ -157,6 +163,17 @@ export const SendResultsScreen: React.FC<{navigation: any; route: any}> = ({
               mode="outlined"
             />
           </View>
+
+          <TextInput
+            label="Notes et conseils pour le client"
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            numberOfLines={3}
+            mode="outlined"
+            style={styles.notesInput}
+            placeholder="Ex: Prévoir le changement des bougies."
+          />
 
           <Divider style={styles.divider} />
 
@@ -260,6 +277,10 @@ const styles = StyleSheet.create({
   costInput: {
     flex: 1,
     height: 50,
+  },
+  notesInput: {
+    marginTop: 8,
+    minHeight: 60,
   },
   resultsContainer: {
     backgroundColor: '#fff',

@@ -1,11 +1,5 @@
 import React, {useState, useEffect, useCallback} from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-
-} from 'react-native';
+import {View, StyleSheet, FlatList, RefreshControl} from 'react-native';
 import {
   Text,
   Card,
@@ -94,7 +88,9 @@ export const AppointmentsScreen = () => {
 
   const renderItem = ({item}: {item: any}) => {
     const isPro = user?.user_type === 'MECHANIC';
-    const otherParty = isPro ? (item.client_name || 'Client') : (item.mechanic_name || 'Garage');
+    const otherParty = isPro
+      ? item.client_name || 'Client'
+      : item.mechanic_name || 'Garage';
     const date = new Date(item.appointment_date);
     const formattedDate = date.toLocaleDateString('fr-FR', {
       day: 'numeric',
